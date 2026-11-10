@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  /* Paleta Modo Oscuro (Azul Marino / Gris) — docs/02-UX-Y-PANTALLAS.md */
+  --bg-canvas: #0b0f19;
+  --bg-surface: #111827;
+  --bg-elevated: #1e293b;
+  --bg-interactive: #334155;
+
+  --border-subtle: #1e293b;
+  --border-default: #334155;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Acentos Azul / Violeta */
+  --accent-primary: #3b82f6;
+  --accent-primary-hover: #2563eb;
+  --accent-secondary: #8b5cf6;
+  --focus-ring: #60a5fa;
+
+  /* Estados Semánticos (Verde, Rojo, Ámbar) */
+  --semantic-success-bg: rgba(5, 46, 22, 0.75);
+  --semantic-success-border: rgba(16, 185, 129, 0.45);
+  --semantic-success-text: #34d399;
+
+  --semantic-error-bg: rgba(69, 10, 10, 0.75);
+  --semantic-error-border: rgba(244, 63, 94, 0.45);
+  --semantic-error-text: #fb7185;
+
+  --semantic-warning-bg: rgba(69, 26, 3, 0.75);
+  --semantic-warning-border: rgba(245, 158, 11, 0.45);
+  --semantic-warning-text: #fbbf24;
+}
+
+html {
+  color-scheme: dark;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Foco de teclado accesible y visible en toda la aplicación */
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
