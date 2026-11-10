@@ -1,32 +1,57 @@
 import React from "react";
+import { listMyDocumentsUseCase } from "@/application/documents/documents.use-cases";
+import { listMySubjectsUseCase } from "@/application/subjects/subjects.use-cases";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { SemanticAlert } from "@/components/ui/SemanticAlert";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ViewStateSimulator } from "@/components/ui/ViewStateSimulator";
 import { APP_CONFIG } from "@/config/env";
-import { MOCK_DOCUMENTS } from "@/features/mock-data/phase1-fixtures";
+import type { TopicEntity } from "@/domain/topics/topics.types";
+import { DocumentListCard } from "@/features/documents/components/DocumentListCard";
+import { UploadDocumentForm } from "@/features/documents/components/UploadDocumentForm";
+import { resolveServerActorContext } from "@/features/subjects/actor-context";
+import { SupabaseDocumentsRepository } from "@/infrastructure/supabase/supabase-documents.repository";
+import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
+import { SupabaseTopicsRepository } from "@/infrastructure/supabase/supabase-topics.repository";
 
-export default function DocumentsPage() {
+export default async function DocumentsPage() {
   const maxMb = (APP_CONFIG.maxPdfSizeBytes / (1024 * 1024)).toFixed(0);
+  const actor = await resolveServerActorContext();
+  const subjectsRepo = new SupabaseSubjectsRepository();
+  const topicsRepo = new SupabaseTopicsRepository();
+  const docsRepo = new SupabaseDocumentsRepository();
+
+  const [subjectsRes, docsRes] = await Promise.all([
+    listMySubjectsUseCase(subjectsRepo, actor),
+    listMyDocumentsUseCase(docsRepo, actor),
+  ]);
+
+  const subjects = subjectsRes.ok ? subjectsRes.data : [];
+  const documents = docsRes.ok ? docsRes.data : [];
+
+  const allTopics: TopicEntity[] = [];
+  for (const sub of subjects) {
+    const tRes = await topicsRepo.listBySubject(sub.id);
+    if (tRes.ok) {
+      allTopics.push(...tRes.data);
+    }
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Biblioteca de Documentos PDF Privados"
-        description={`Sube tus apuntes y guías en formato PDF (máximo ${maxMb} MB por archivo) almacenados en bucket privado con acceso por URL firmada temporal.`}
-        primaryAction={{
-          label: `Subir documento PDF (máx. ${maxMb} MB)`,
-          href: "/app/subjects",
-        }}
+        description={`Sube tus apuntes y guías en formato PDF (máximo ${maxMb} MB por archivo) almacenados en el bucket privado study-documents con acceso por URL firmada temporal (5 min).`}
         badge={<StatusBadge variant="info" label="Storage Privado RLS" />}
       />
 
       <SemanticAlert
         variant="warning"
         title="Regla de integridad al eliminar un PDF"
-        description="Si eliminas un documento PDF en el futuro, las preguntas vinculadas NO se borran: su referencia pasa automáticamente al estado 'Fuente no disponible' (ON DELETE SET NULL)."
+        description="Si eliminas un documento PDF, el objeto se borra de study-documents pero las preguntas vinculadas NO se borran: su referencia pasa automáticamente a document_id = NULL indicando 'Fuente no disponible'."
       />
+
+      <UploadDocumentForm subjects={subjects} topics={allTopics} />
 
       <ViewStateSimulator
         title="tus documentos PDF"
@@ -35,42 +60,7 @@ export default function DocumentsPage() {
         emptyActionLabel="Ir a mis materias"
         emptyActionHref="/app/subjects"
       >
-        <div className="space-y-3">
-          {MOCK_DOCUMENTS.map((doc) => (
-            <Card
-              key={doc.id}
-              className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-100">
-                    {doc.filename}
-                  </span>
-                  {doc.status === "available" ? (
-                    <StatusBadge variant="success" label="Disponible (URL firmada)" />
-                  ) : (
-                    <StatusBadge
-                      variant="warning"
-                      label="Fuente no disponible (Archivo eliminado)"
-                    />
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">
-                  Materia: {doc.subjectTitle}{" "}
-                  {doc.topicTitle ? `• Tema: ${doc.topicTitle}` : "• General de la materia"}
-                </p>
-                <p className="text-xs text-slate-300">
-                  Tamaño: {(doc.sizeBytes / (1024 * 1024)).toFixed(2)} MB • MIME:{" "}
-                  {doc.mimeType} • {doc.linkedQuestionsCount} preguntas vinculadas
-                </p>
-              </div>
-
-              <div className="text-xs text-slate-400 shrink-0">
-                Subido el {doc.createdAt}
-              </div>
-            </Card>
-          ))}
-        </div>
+        <DocumentListCard documents={documents} />
       </ViewStateSimulator>
     </div>
   );

@@ -1,14 +1,19 @@
 import React from "react";
+import { listTopicDocumentsUseCase } from "@/application/documents/documents.use-cases";
 import { getSubjectByIdUseCase } from "@/application/subjects/subjects.use-cases";
 import { getTopicByIdUseCase } from "@/application/topics/topics.use-cases";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { DocumentListCard } from "@/features/documents/components/DocumentListCard";
+import { UploadDocumentForm } from "@/features/documents/components/UploadDocumentForm";
 import {
+  MOCK_PRIVATE_SUBJECTS,
   MOCK_QUESTIONS,
   MOCK_TOPICS,
 } from "@/features/mock-data/phase1-fixtures";
 import { resolveServerActorContext } from "@/features/subjects/actor-context";
+import { SupabaseDocumentsRepository } from "@/infrastructure/supabase/supabase-documents.repository";
 import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
 import { SupabaseTopicsRepository } from "@/infrastructure/supabase/supabase-topics.repository";
 
@@ -21,6 +26,7 @@ export default async function TopicDetailPage({
   const actor = await resolveServerActorContext();
   const subjectsRepo = new SupabaseSubjectsRepository();
   const topicsRepo = new SupabaseTopicsRepository();
+  const docsRepo = new SupabaseDocumentsRepository();
 
   const topicDetailRes = await getTopicByIdUseCase(
     subjectsRepo,
@@ -48,14 +54,33 @@ export default async function TopicDetailPage({
     ? topicDetailRes.data.parentTitle
     : null;
 
-  const subjectRes = await getSubjectByIdUseCase(
-    subjectsRepo,
-    actor,
-    topic.subjectId
-  );
-  const subjectTitle = subjectRes.ok
-    ? subjectRes.data.title
-    : "Fisiología y Biofísica";
+  const [subjectRes, topicDocsRes] = await Promise.all([
+    getSubjectByIdUseCase(subjectsRepo, actor, topic.subjectId),
+    listTopicDocumentsUseCase(
+      subjectsRepo,
+      docsRepo,
+      actor,
+      topic.subjectId,
+      topic.id
+    ),
+  ]);
+
+  const fallbackSubject = MOCK_PRIVATE_SUBJECTS[0];
+  const subject = subjectRes.ok
+    ? subjectRes.data
+    : {
+        id: fallbackSubject.id,
+        ownerId: actor.userId,
+        title: fallbackSubject.title,
+        description: fallbackSubject.description,
+        visibility: fallbackSubject.visibility,
+        status: fallbackSubject.status,
+        publishedAt: null,
+        createdAt: fallbackSubject.updatedAt,
+        updatedAt: fallbackSubject.updatedAt,
+      };
+
+  const topicDocuments = topicDocsRes.ok ? topicDocsRes.data : [];
 
   const accuracy = topic.accuracy ?? 0;
   const attempts = topic.attemptsCount ?? 0;
@@ -65,7 +90,7 @@ export default async function TopicDetailPage({
       <PageHeader
         breadcrumbs={[
           { label: "Mis Materias", href: "/app/subjects" },
-          { label: subjectTitle, href: `/app/subjects/${topic.subjectId}` },
+          { label: subject.title, href: `/app/subjects/${topic.subjectId}` },
           ...(parentTitle ? [{ label: parentTitle }] : []),
           { label: topic.title },
         ]}
@@ -83,10 +108,31 @@ export default async function TopicDetailPage({
         }}
       />
 
+      <section aria-label="Documentos PDF del tema" className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-slate-100">
+            Documentos PDF del Tema ({topicDocuments.length})
+          </h2>
+          <span className="text-xs text-slate-400">
+            Almacenados en bucket privado study-documents con URLs firmadas
+          </span>
+        </div>
+
+        <UploadDocumentForm
+          subjects={[subject]}
+          topics={[topic]}
+          defaultSubjectId={subject.id}
+          defaultTopicId={topic.id}
+        />
+
+        <DocumentListCard documents={topicDocuments} />
+      </section>
+
       <section aria-label="Banco de preguntas del tema" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-slate-100">
-            Banco de Preguntas Deterministas (v1: single_choice, true_false, multiple_select)
+            Banco de Preguntas Deterministas (v1: single_choice, true_false,
+            multiple_select)
           </h2>
           <span className="text-xs text-slate-400">
             Las preguntas en borrador (draft) no entran en partidas normales
@@ -100,7 +146,10 @@ export default async function TopicDetailPage({
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge variant="info" label={`Tipo: ${q.type}`} />
                   {q.status === "published" ? (
-                    <StatusBadge variant="success" label="Publicada (published)" />
+                    <StatusBadge
+                      variant="success"
+                      label="Publicada (published)"
+                    />
                   ) : (
                     <StatusBadge variant="warning" label="Borrador (draft)" />
                   )}
@@ -143,7 +192,10 @@ export default async function TopicDetailPage({
                     <div className="flex items-center justify-between gap-2 font-medium">
                       <span>{opt.text}</span>
                       {opt.isCorrect ? (
-                        <StatusBadge variant="success" label="Opción correcta" />
+                        <StatusBadge
+                          variant="success"
+                          label="Opción correcta"
+                        />
                       ) : (
                         <StatusBadge variant="error" label="Distractor" />
                       )}

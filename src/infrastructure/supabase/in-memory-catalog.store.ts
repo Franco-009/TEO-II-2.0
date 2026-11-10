@@ -1,4 +1,14 @@
 import type {
+  DocumentsRepository,
+  PrivateDocumentStoragePort,
+} from "@/domain/documents/documents.ports";
+import type {
+  DocumentEntity,
+  DocumentResult,
+  DocumentStatus,
+  SignedDocumentUrl,
+} from "@/domain/documents/documents.types";
+import type {
   ContentStatus,
   ContentVisibility,
 } from "@/domain/models/studyplay";
@@ -10,6 +20,7 @@ import type {
 import type { TopicsRepository } from "@/domain/topics/topics.ports";
 import type { TopicEntity, TopicResult } from "@/domain/topics/topics.types";
 import {
+  MOCK_DOCUMENTS,
   MOCK_PRIVATE_SUBJECTS,
   MOCK_PUBLIC_SUBJECTS,
   MOCK_TOPICS,
@@ -74,16 +85,46 @@ function buildInitialTopics(): TopicEntity[] {
   }));
 }
 
+function buildInitialDocuments(): DocumentEntity[] {
+  return MOCK_DOCUMENTS.map((d) => ({
+    id: d.id,
+    ownerId: MOCK_USER_PROFILE.id,
+    subjectId: d.subjectId,
+    subjectTitle: d.subjectTitle,
+    topicId: d.topicId,
+    topicTitle: d.topicTitle,
+    storagePath: `${MOCK_USER_PROFILE.id}/${d.id}/${d.filename}`,
+    filename: d.filename,
+    mimeType: "application/pdf",
+    sizeBytes: d.sizeBytes,
+    status: d.status,
+    linkedQuestionsCount: d.linkedQuestionsCount,
+    createdAt: d.createdAt,
+  }));
+}
+
 export class InMemoryStudyCatalogStore
-  implements SubjectsRepository, TopicsRepository
+  implements
+    SubjectsRepository,
+    TopicsRepository,
+    DocumentsRepository,
+    PrivateDocumentStoragePort
 {
   private subjects: SubjectEntity[];
   private topics: TopicEntity[];
+  private documents: DocumentEntity[];
+  private storedBlobs = new Set<string>();
   private seq = 100;
 
   constructor(seedWithDefaults = true) {
     this.subjects = seedWithDefaults ? buildInitialSubjects() : [];
     this.topics = seedWithDefaults ? buildInitialTopics() : [];
+    this.documents = seedWithDefaults ? buildInitialDocuments() : [];
+    for (const doc of this.documents) {
+      if (doc.status === "available") {
+        this.storedBlobs.add(doc.storagePath);
+      }
+    }
   }
 
   async listByOwner(ownerId: string): Promise<SubjectResult<SubjectEntity[]>> {
@@ -96,6 +137,11 @@ export class InMemoryStudyCatalogStore
           topicsCount:
             this.topics.filter((t) => t.subjectId === s.id).length ||
             (s.topicsCount ?? 0),
+          documentsCount:
+            this.documents.filter(
+              (d) => d.subjectId === s.id && d.status === "available"
+            ).length ||
+            (s.documentsCount ?? 0),
         })),
     };
   }
@@ -123,6 +169,11 @@ export class InMemoryStudyCatalogStore
         topicsCount:
           this.topics.filter((t) => t.subjectId === found.id).length ||
           (found.topicsCount ?? 0),
+        documentsCount:
+          this.documents.filter(
+            (d) => d.subjectId === found.id && d.status === "available"
+          ).length ||
+          (found.documentsCount ?? 0),
       },
     };
   }
@@ -197,6 +248,7 @@ export class InMemoryStudyCatalogStore
   async delete(subjectId: string): Promise<SubjectResult<{ deleted: true }>> {
     this.subjects = this.subjects.filter((s) => s.id !== subjectId);
     this.topics = this.topics.filter((t) => t.subjectId !== subjectId);
+    this.documents = this.documents.filter((d) => d.subjectId !== subjectId);
     return { ok: true, data: { deleted: true } };
   }
 
@@ -277,6 +329,213 @@ export class InMemoryStudyCatalogStore
       (t) => t.id !== topicId && t.parentTopicId !== topicId
     );
     return { ok: true, data: { deleted: true } };
+  }
+
+  // --- DocumentsRepository ---
+
+  async listDocumentsByOwner(
+    ownerId: string
+  ): Promise<DocumentResult<DocumentEntity[]>> {
+    return {
+      ok: true,
+      data: this.documents.filter((d) => d.ownerId === ownerId),
+    };
+  }
+
+  async listDocumentsBySubject(
+    subjectId: string,
+    ownerId: string
+  ): Promise<DocumentResult<DocumentEntity[]>> {
+    return {
+      ok: true,
+      data: this.documents.filter(
+        (d) => d.subjectId === subjectId && d.ownerId === ownerId
+      ),
+    };
+  }
+
+  async listDocumentsByTopic(
+    topicId: string,
+    ownerId: string
+  ): Promise<DocumentResult<DocumentEntity[]>> {
+    return {
+      ok: true,
+      data: this.documents.filter(
+        (d) => d.topicId === topicId && d.ownerId === ownerId
+      ),
+    };
+  }
+
+  async findDocumentById(
+    documentId: string
+  ): Promise<DocumentResult<DocumentEntity | null>> {
+    const found = this.documents.find((d) => d.id === documentId) ?? null;
+    return { ok: true, data: found };
+  }
+
+  async createDocumentRecord(params: {
+    id: string;
+    ownerId: string;
+    subjectId: string;
+    subjectTitle?: string;
+    topicId: string | null;
+    topicTitle?: string | null;
+    storagePath: string;
+    filename: string;
+    mimeType: "application/pdf";
+    sizeBytes: number;
+    status: DocumentStatus;
+  }): Promise<DocumentResult<DocumentEntity>> {
+    const subject = this.subjects.find((s) => s.id === params.subjectId);
+    const topic = params.topicId
+      ? this.topics.find((t) => t.id === params.topicId)
+      : null;
+
+    const entity: DocumentEntity = {
+      id: params.id,
+      ownerId: params.ownerId,
+      subjectId: params.subjectId,
+      subjectTitle: params.subjectTitle ?? subject?.title ?? "Materia",
+      topicId: params.topicId,
+      topicTitle: params.topicTitle ?? topic?.title ?? null,
+      storagePath: params.storagePath,
+      filename: params.filename,
+      mimeType: "application/pdf",
+      sizeBytes: params.sizeBytes,
+      status: params.status,
+      linkedQuestionsCount: 0,
+      createdAt: new Date().toLocaleDateString("es-AR"),
+    };
+
+    // Idempotencia por id o storagePath
+    const existingIdx = this.documents.findIndex(
+      (d) => d.id === params.id || d.storagePath === params.storagePath
+    );
+    if (existingIdx !== -1) {
+      this.documents[existingIdx] = entity;
+    } else {
+      this.documents.unshift(entity);
+    }
+
+    return { ok: true, data: entity };
+  }
+
+  async updateDocumentStatus(
+    documentId: string,
+    status: DocumentStatus
+  ): Promise<DocumentResult<DocumentEntity>> {
+    const idx = this.documents.findIndex((d) => d.id === documentId);
+    if (idx === -1) {
+      return {
+        ok: false,
+        error: {
+          code: "DOCUMENT_NOT_FOUND",
+          message: "Documento no encontrado",
+        },
+      };
+    }
+
+    const updated: DocumentEntity = {
+      ...this.documents[idx],
+      status,
+    };
+    this.documents[idx] = updated;
+    return { ok: true, data: updated };
+  }
+
+  async deleteDocumentRecord(
+    documentId: string
+  ): Promise<
+    DocumentResult<{
+      deleted: true;
+      preservedLinkedQuestions: number;
+    }>
+  > {
+    const idx = this.documents.findIndex((d) => d.id === documentId);
+    if (idx === -1) {
+      return {
+        ok: false,
+        error: {
+          code: "DOCUMENT_NOT_FOUND",
+          message: "Documento no encontrado",
+        },
+      };
+    }
+
+    const target = this.documents[idx];
+    const preserved = target.linkedQuestionsCount ?? 0;
+
+    // Eliminar de la lista de documentos activos (las preguntas asociadas conservan su existencia
+    // pasando a "fuente no disponible" según docs/01-REQUISITOS.md y ON DELETE SET NULL)
+    this.documents.splice(idx, 1);
+
+    return {
+      ok: true,
+      data: {
+        deleted: true,
+        preservedLinkedQuestions: preserved,
+      },
+    };
+  }
+
+  // --- PrivateDocumentStoragePort ---
+
+  async uploadPdfObject(params: {
+    storagePath: string;
+    mimeType: "application/pdf";
+    sizeBytes: number;
+    simulateFailure?: boolean;
+  }): Promise<DocumentResult<{ storagePath: string }>> {
+    if (params.simulateFailure) {
+      return {
+        ok: false,
+        error: {
+          code: "STORAGE_UPLOAD_FAILED",
+          message:
+            "Error de red al subir el PDF al bucket privado. Puedes reintentar sin duplicar el registro.",
+        },
+      };
+    }
+
+    this.storedBlobs.add(params.storagePath);
+    return {
+      ok: true,
+      data: { storagePath: params.storagePath },
+    };
+  }
+
+  async createSignedReadUrl(params: {
+    documentId: string;
+    filename: string;
+    storagePath: string;
+    expiresInSeconds: number;
+  }): Promise<DocumentResult<SignedDocumentUrl>> {
+    const expiresAt = new Date(
+      Date.now() + params.expiresInSeconds * 1000
+    ).toISOString();
+    const token = Buffer.from(
+      `${params.storagePath}:${expiresAt}`,
+      "utf-8"
+    ).toString("base64url");
+
+    return {
+      ok: true,
+      data: {
+        documentId: params.documentId,
+        filename: params.filename,
+        storagePath: params.storagePath,
+        signedUrl: `https://storage.studyplay.local/study-documents/${params.storagePath}?token=${token}&exp=${params.expiresInSeconds}`,
+        expiresInSeconds: params.expiresInSeconds,
+        expiresAt,
+      },
+    };
+  }
+
+  async removePdfObject(
+    storagePath: string
+  ): Promise<DocumentResult<{ removed: true }>> {
+    this.storedBlobs.delete(storagePath);
+    return { ok: true, data: { removed: true } };
   }
 }
 

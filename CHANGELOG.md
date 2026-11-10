@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0] - Fase 4: Documentos PDF y Storage Privado
+- Creación de la migración SQL (`supabase/migrations/20261110000003_phase4_documents_and_storage_rls.sql`) para `public.documents` con restricciones MIME `application/pdf`, límite de 15 MB (`15_728_640` bytes), trigger `enforce_document_integrity`, políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) y provisión del bucket privado `study-documents` con políticas RLS sobre `storage.objects` (`{user_id}/{document_id}/{filename}`).
+- Implementación de reglas puras y contratos en `src/domain/documents/` (validación de extensión `.pdf`, MIME `application/pdf`, firma de cabecera `%PDF-`, sanitización determinista de nombre de archivo, máquina de estados `uploading -> available / failed` con reintento idempotente y aislamiento estricto por propietario).
+- Implementación de casos de uso en `src/application/documents/` y adaptadores en `src/infrastructure/storage/supabase-private-storage.adapter.ts`, `src/infrastructure/supabase/supabase-documents.repository.ts` y `InMemoryStudyCatalogStore`, incluyendo generación de URLs firmadas temporales (5 min) y eliminación segura preservando las preguntas asociadas (`"Fuente no disponible"`).
+- Conexión de Server Actions y componentes interactivos (`UploadDocumentForm`, `DocumentListCard`) en `/app/documents`, `/app/subjects/[id]` y `/app/topics/[id]`.
+- Adición de suites de pruebas en Vitest cubriendo límites de tamaño, archivos corruptos/inválidos, reintentos idempotentes sin duplicados y el Caso Imprescindible #10 (`Usuario B` no puede acceder, firmar URL ni eliminar el PDF privado del `Usuario A`).
+
 ## [0.4.0] - Fase 3: Datos, Materias y Temas
 - Creación de la migración SQL (`supabase/migrations/20261110000002_phase3_subjects_topics_and_rls.sql`) para `public.subjects` y `public.topics` con jerarquía `parent_topic_id`, `sort_order`, índices, triggers (`set_updated_at`, `enforce_subject_publication_rules`, `enforce_topic_hierarchy_integrity`) y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
 - Implementación de reglas puras y contratos en `src/domain/subjects/` y `src/domain/topics/` (validación de visibilidad pública exclusiva para `admin`, aislamiento de propietarios, prevención de ciclos jerárquicos `wouldCreateTopicCycle` y árbol ordenado `buildOrderedTopicTree`).

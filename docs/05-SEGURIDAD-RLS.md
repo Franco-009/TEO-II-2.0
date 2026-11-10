@@ -15,5 +15,5 @@
 | **Materia / Tema privado (`subjects`, `topics`)** | CRUD propio (`owner_id = auth.uid()` y `can_write_subject`) | Sin acceso | Sin acceso rutinario a materias privadas ajenas[cite: 18] |
 | **Materia / Tema público (`visibility = 'public'`)** | Lectura si `status = 'published'` | Lectura si `status = 'published'` | CRUD y publicación (`public.is_admin()` + trigger `enforce_subject_publication_rules`)[cite: 18] |
 | **Intento / Sesión / Resultado** | Lectura y creación propia | Sin acceso | Sin acceso rutinario al detalle personal[cite: 18] |
-| **PDF privado (Storage)** | Acceso propio (`{user_id}/...`) | Sin acceso | Sin acceso por defecto[cite: 7, 18] |
+| **PDF privado (`public.documents` y `storage.objects` bucket `study-documents`)** | Acceso propio (`owner_id = auth.uid()` y `(storage.foldername(name))[1] = auth.uid()::text`) mediante URL firmada temporal | Sin acceso | Sin acceso por defecto[cite: 7, 18] |
 | **XP y racha** | Lectura propia; escritura validada en servidor | Sin acceso | Sin modificación manual ordinaria[cite: 18] |

@@ -1,16 +1,20 @@
 import React from "react";
 import Link from "next/link";
+import { listSubjectDocumentsUseCase } from "@/application/documents/documents.use-cases";
 import { getSubjectByIdUseCase } from "@/application/subjects/subjects.use-cases";
 import { listSubjectTopicsTreeUseCase } from "@/application/topics/topics.use-cases";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { MOCK_DOCUMENTS, MOCK_PRIVATE_SUBJECTS } from "@/features/mock-data/phase1-fixtures";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { DocumentListCard } from "@/features/documents/components/DocumentListCard";
+import { UploadDocumentForm } from "@/features/documents/components/UploadDocumentForm";
+import { MOCK_PRIVATE_SUBJECTS } from "@/features/mock-data/phase1-fixtures";
 import { resolveServerActorContext } from "@/features/subjects/actor-context";
 import { SubjectStatusControl } from "@/features/subjects/components/SubjectStatusControl";
 import { CreateTopicForm } from "@/features/topics/components/CreateTopicForm";
+import { SupabaseDocumentsRepository } from "@/infrastructure/supabase/supabase-documents.repository";
 import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
 import { SupabaseTopicsRepository } from "@/infrastructure/supabase/supabase-topics.repository";
 
@@ -23,6 +27,7 @@ export default async function SubjectDetailPage({
   const actor = await resolveServerActorContext();
   const subjectsRepo = new SupabaseSubjectsRepository();
   const topicsRepo = new SupabaseTopicsRepository();
+  const docsRepo = new SupabaseDocumentsRepository();
 
   const subjectRes = await getSubjectByIdUseCase(subjectsRepo, actor, id);
   const fallback = MOCK_PRIVATE_SUBJECTS[0];
@@ -40,17 +45,13 @@ export default async function SubjectDetailPage({
         updatedAt: fallback.updatedAt,
       };
 
-  const topicsTreeRes = await listSubjectTopicsTreeUseCase(
-    subjectsRepo,
-    topicsRepo,
-    actor,
-    subject.id
-  );
-  const topicsTree = topicsTreeRes.ok ? topicsTreeRes.data : [];
+  const [topicsTreeRes, subjectDocsRes] = await Promise.all([
+    listSubjectTopicsTreeUseCase(subjectsRepo, topicsRepo, actor, subject.id),
+    listSubjectDocumentsUseCase(subjectsRepo, docsRepo, actor, subject.id),
+  ]);
 
-  const subjectDocuments = MOCK_DOCUMENTS.filter(
-    (doc) => doc.subjectId === subject.id
-  );
+  const topicsTree = topicsTreeRes.ok ? topicsTreeRes.data : [];
+  const subjectDocuments = subjectDocsRes.ok ? subjectDocsRes.data : [];
 
   return (
     <div className="space-y-6">
@@ -179,47 +180,23 @@ export default async function SubjectDetailPage({
         <section aria-label="Apuntes PDF de la materia" className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-100">
-              Documentos PDF Asociados
+              Documentos PDF Asociados ({subjectDocuments.length})
             </h2>
             <Link
               href="/app/documents"
               className="text-xs font-medium text-blue-400 hover:underline"
             >
-              Gestionar PDFs
+              Biblioteca completa
             </Link>
           </div>
 
-          <Card className="p-4 space-y-3">
-            {subjectDocuments.length === 0 ? (
-              <p className="text-xs text-slate-400">
-                Aún no hay apuntes PDF vinculados a esta materia.
-              </p>
-            ) : (
-              subjectDocuments.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="border-b border-slate-800 pb-3 last:border-none last:pb-0 space-y-1.5"
-                >
-                  <p className="text-xs font-semibold text-slate-200 break-all">
-                    {doc.filename}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    {doc.status === "available" ? (
-                      <StatusBadge variant="success" label="PDF disponible" />
-                    ) : (
-                      <StatusBadge
-                        variant="warning"
-                        label="Fuente no disponible (preguntas preservadas)"
-                      />
-                    )}
-                    <span className="text-[11px] text-slate-400">
-                      {(doc.sizeBytes / (1024 * 1024)).toFixed(1)} MB
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-          </Card>
+          <UploadDocumentForm
+            subjects={[subject]}
+            topics={topicsTree}
+            defaultSubjectId={subject.id}
+          />
+
+          <DocumentListCard documents={subjectDocuments} />
         </section>
       </div>
     </div>
