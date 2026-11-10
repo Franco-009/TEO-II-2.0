@@ -1,6 +1,6 @@
 {
   "name": "studyplay",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Plataforma web multiusuario para organizar materiales de estudio y practicar con cuestionarios autocorregibles.",
   "scripts": {
@@ -13,6 +13,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.49.1",
     "lucide-react": "^0.475.0",
     "next": "^15.2.0",
     "react": "^19.0.0",

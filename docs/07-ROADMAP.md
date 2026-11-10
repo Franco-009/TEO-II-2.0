@@ -4,7 +4,7 @@ Regla: Avanzar de fase únicamente cuando se cumpla el criterio de salida verifi
 
 - [x] **FASE 0 - Preparación y decisiones:** Estructura `/docs`, `README.md`, `.env.example`, `.gitignore`, `CHANGELOG.md` y ADRs iniciales[cite: 20, 26].
 - [x] **FASE 1 - Base visual y navegación:** Inicializar Next.js + TypeScript + Tailwind, tokens de color (modo oscuro azul marino/gris), layouts público y autenticado, pantallas con datos ficticios y diseño responsive[cite: 8, 20].
-- [ ] **FASE 2 - Supabase y autenticación:** Clientes Supabase (servidor/cliente), registro, login, logout, recuperación, tabla `profiles` con rol seguro y protección de rutas[cite: 20].
+- [x] **FASE 2 - Supabase y autenticación:** Clientes Supabase (servidor/cliente), registro, login, logout, recuperación, tabla `profiles` con rol seguro y protección de rutas[cite: 20].
 - [ ] **FASE 3 - Datos, materias y temas:** Migraciones SQL para `subjects` y `topics`, RLS completo, CRUD de materias/temas jerárquicos y catálogo público básico[cite: 20, 21].
 - [ ] **FASE 4 - Documentos:** Bucket privado en Storage, políticas de acceso, subida de PDF (máx. 15 MB) con validación MIME/extensión y vista/descarga protegida[cite: 5, 18, 21, 28].
 - [ ] **FASE 5 - Preguntas y editor:** Migraciones `questions` y `question_options`, formularios por tipo (`single_choice`, `true_false`, `multiple_select`), validaciones de publicación y vista previa[cite: 5, 17, 21, 23].

@@ -11,6 +11,7 @@
 ## 2. Matriz Mínima RLS
 | Recurso | Usuario propietario | Otro usuario | Administrador (`admin`) |
 | :--- | :--- | :--- | :--- |
+| **Perfil (`public.profiles`)** | `SELECT` y `UPDATE` propio (`display_name`, `avatar_path`); prohibido cambiar `role` | Sin acceso | `SELECT`, `UPDATE` y `DELETE` mediante `public.is_admin()` |
 | **Materia / Tema / Pregunta privada** | CRUD propio | Sin acceso | Acceso solo si la función administrativa lo requiere[cite: 18] |
 | **Materia pública publicada** | Lectura | Lectura | CRUD y publicación[cite: 18] |
 | **Intento / Sesión / Resultado** | Lectura y creación propia | Sin acceso | Sin acceso rutinario al detalle personal[cite: 18] |

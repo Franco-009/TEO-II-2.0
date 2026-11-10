@@ -1,7 +1,7 @@
 # 04. Modelo de Datos y Reglas de Negocio
 
 ## 1. Entidades Principales (PostgreSQL)
-- **`profiles`**: `id` (UUID, PK = `auth.users.id`), `display_name`, `avatar_path`, `role` (`user` | `admin`), `created_at`[cite: 2, 14, 25].
+- **`profiles`**: `id` (UUID, PK = `auth.users.id` ON DELETE CASCADE), `display_name` (1..100 chars), `avatar_path`, `role` (`user` | `admin`, default `'user'`), `created_at`[cite: 2, 14, 25]. Implementada en `supabase/migrations/20261110000001_phase2_profiles_and_rls.sql` con trigger `on_auth_user_created` (`public.handle_new_user()`) y bloqueo de escalación de rol (`public.prevent_profile_role_escalation()`).
 - **`subjects`**: `id` (UUID), `owner_id` (FK `profiles`), `title`, `description`, `visibility` (`private` | `public`), `status` (`draft` | `published` | `archived`), `published_at`, `created_at`, `updated_at`[cite: 4, 14, 15].
 - **`topics`**: `id` (UUID), `subject_id` (FK `subjects`), `parent_topic_id` (FK opcional a `topics`), `title`, `description`, `sort_order`[cite: 14].
 - **`documents`**: `id` (UUID), `owner_id` (FK `profiles`), `subject_id` (FK `subjects`), `topic_id` (opcional), `storage_path`, `filename`, `mime_type`, `size_bytes`, `status`, `created_at`[cite: 14].
