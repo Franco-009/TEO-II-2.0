@@ -12,8 +12,8 @@
 | Recurso | Usuario propietario | Otro usuario | Administrador (`admin`) |
 | :--- | :--- | :--- | :--- |
 | **Perfil (`public.profiles`)** | `SELECT` y `UPDATE` propio (`display_name`, `avatar_path`); prohibido cambiar `role` | Sin acceso | `SELECT`, `UPDATE` y `DELETE` mediante `public.is_admin()` |
-| **Materia / Tema / Pregunta privada** | CRUD propio | Sin acceso | Acceso solo si la función administrativa lo requiere[cite: 18] |
-| **Materia pública publicada** | Lectura | Lectura | CRUD y publicación[cite: 18] |
+| **Materia / Tema privado (`subjects`, `topics`)** | CRUD propio (`owner_id = auth.uid()` y `can_write_subject`) | Sin acceso | Sin acceso rutinario a materias privadas ajenas[cite: 18] |
+| **Materia / Tema público (`visibility = 'public'`)** | Lectura si `status = 'published'` | Lectura si `status = 'published'` | CRUD y publicación (`public.is_admin()` + trigger `enforce_subject_publication_rules`)[cite: 18] |
 | **Intento / Sesión / Resultado** | Lectura y creación propia | Sin acceso | Sin acceso rutinario al detalle personal[cite: 18] |
 | **PDF privado (Storage)** | Acceso propio (`{user_id}/...`) | Sin acceso | Sin acceso por defecto[cite: 7, 18] |
 | **XP y racha** | Lectura propia; escritura validada en servidor | Sin acceso | Sin modificación manual ordinaria[cite: 18] |

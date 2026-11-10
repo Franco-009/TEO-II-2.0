@@ -1,4 +1,6 @@
 import React from "react";
+import { getSubjectByIdUseCase } from "@/application/subjects/subjects.use-cases";
+import { getTopicByIdUseCase } from "@/application/topics/topics.use-cases";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -6,6 +8,9 @@ import {
   MOCK_QUESTIONS,
   MOCK_TOPICS,
 } from "@/features/mock-data/phase1-fixtures";
+import { resolveServerActorContext } from "@/features/subjects/actor-context";
+import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
+import { SupabaseTopicsRepository } from "@/infrastructure/supabase/supabase-topics.repository";
 
 export default async function TopicDetailPage({
   params,
@@ -13,23 +18,63 @@ export default async function TopicDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const topic =
-    MOCK_TOPICS.find((item) => item.id === id) ?? MOCK_TOPICS[0];
+  const actor = await resolveServerActorContext();
+  const subjectsRepo = new SupabaseSubjectsRepository();
+  const topicsRepo = new SupabaseTopicsRepository();
+
+  const topicDetailRes = await getTopicByIdUseCase(
+    subjectsRepo,
+    topicsRepo,
+    actor,
+    id
+  );
+
+  const fallbackTopic = MOCK_TOPICS[0];
+  const topic = topicDetailRes.ok
+    ? topicDetailRes.data.topic
+    : {
+        id: fallbackTopic.id,
+        subjectId: fallbackTopic.subjectId,
+        parentTopicId: fallbackTopic.parentTopicId,
+        title: fallbackTopic.title,
+        description: fallbackTopic.description,
+        sortOrder: fallbackTopic.sortOrder,
+        createdAt: "",
+        updatedAt: "",
+        accuracy: fallbackTopic.accuracy,
+        attemptsCount: fallbackTopic.attemptsCount,
+      };
+  const parentTitle = topicDetailRes.ok
+    ? topicDetailRes.data.parentTitle
+    : null;
+
+  const subjectRes = await getSubjectByIdUseCase(
+    subjectsRepo,
+    actor,
+    topic.subjectId
+  );
+  const subjectTitle = subjectRes.ok
+    ? subjectRes.data.title
+    : "Fisiología y Biofísica";
+
+  const accuracy = topic.accuracy ?? 0;
+  const attempts = topic.attemptsCount ?? 0;
 
   return (
     <div className="space-y-6">
       <PageHeader
         breadcrumbs={[
           { label: "Mis Materias", href: "/app/subjects" },
-          { label: "Fisiología y Biofísica", href: `/app/subjects/${topic.subjectId}` },
+          { label: subjectTitle, href: `/app/subjects/${topic.subjectId}` },
+          ...(parentTitle ? [{ label: parentTitle }] : []),
           { label: topic.title },
         ]}
         title={topic.title}
         description={topic.description}
         badge={
           <StatusBadge
-            variant={topic.accuracy >= 80 ? "success" : "warning"}
-            label={`Precisión: ${topic.accuracy}% (${topic.attemptsCount} intentos)`}
+            variant={accuracy >= 80 ? "success" : "warning"}
+            label={`Orden #${topic.sortOrder} • Precisión: ${accuracy}% (${attempts} intentos)`}
           />
         }
         primaryAction={{
@@ -53,10 +98,7 @@ export default async function TopicDetailPage({
             <Card key={q.id} className="p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge
-                    variant="info"
-                    label={`Tipo: ${q.type}`}
-                  />
+                  <StatusBadge variant="info" label={`Tipo: ${q.type}`} />
                   {q.status === "published" ? (
                     <StatusBadge variant="success" label="Publicada (published)" />
                   ) : (
@@ -112,7 +154,9 @@ export default async function TopicDetailPage({
               </ul>
 
               <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-xs text-slate-300">
-                <strong className="text-slate-100">Explicación general guardada: </strong>
+                <strong className="text-slate-100">
+                  Explicación general guardada:{" "}
+                </strong>
                 {q.explanation}
               </div>
             </Card>

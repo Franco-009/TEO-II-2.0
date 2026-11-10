@@ -1,13 +1,20 @@
 import React from "react";
 import Link from "next/link";
+import { listMySubjectsUseCase } from "@/application/subjects/subjects.use-cases";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 import { ViewStateSimulator } from "@/components/ui/ViewStateSimulator";
-import { MOCK_PRIVATE_SUBJECTS } from "@/features/mock-data/phase1-fixtures";
+import { resolveServerActorContext } from "@/features/subjects/actor-context";
+import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
 
-export default function SubjectsListPage() {
+export default async function SubjectsListPage() {
+  const actor = await resolveServerActorContext();
+  const repo = new SupabaseSubjectsRepository();
+  const subjectsRes = await listMySubjectsUseCase(repo, actor);
+  const subjects = subjectsRes.ok ? subjectsRes.data : [];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -28,27 +35,37 @@ export default function SubjectsListPage() {
         emptyActionHref="/app/subjects/new"
       >
         <div className="grid gap-4 md:grid-cols-2">
-          {MOCK_PRIVATE_SUBJECTS.map((subject) => {
-            const isMastered =
-              subject.attemptsCount >= 5 && subject.masteryAccuracy >= 80;
+          {subjects.map((subject) => {
+            const attempts = subject.attemptsCount ?? 0;
+            const accuracy = subject.masteryAccuracy ?? 0;
+            const isMastered = attempts >= 5 && accuracy >= 80;
+
             return (
-              <Card key={subject.id} className="p-5 flex flex-col justify-between gap-4">
+              <Card
+                key={subject.id}
+                className="p-5 flex flex-col justify-between gap-4"
+              >
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     {subject.status === "published" ? (
                       <StatusBadge variant="success" label="Publicada (Privada)" />
+                    ) : subject.status === "draft" ? (
+                      <StatusBadge
+                        variant="warning"
+                        label="Borrador (No entra en juego)"
+                      />
                     ) : (
-                      <StatusBadge variant="warning" label="Borrador (No entra en juego)" />
+                      <StatusBadge variant="info" label="Archivada (Histórica)" />
                     )}
                     {isMastered ? (
                       <StatusBadge
                         variant="success"
-                        label={`Dominada (${subject.masteryAccuracy}%)`}
+                        label={`Dominada (${accuracy}%)`}
                       />
                     ) : (
                       <StatusBadge
                         variant="neutral"
-                        label={`Precisión: ${subject.masteryAccuracy}% (${subject.attemptsCount} int.)`}
+                        label={`Precisión: ${accuracy}% (${attempts} int.)`}
                       />
                     )}
                   </div>
@@ -68,8 +85,9 @@ export default function SubjectsListPage() {
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800 text-xs text-slate-300">
                   <span>
-                    {subject.topicsCount} temas • {subject.questionsCount} preguntas •{" "}
-                    {subject.documentsCount} PDF
+                    {subject.topicsCount ?? 0} temas •{" "}
+                    {subject.questionsCount ?? 0} preguntas •{" "}
+                    {subject.documentsCount ?? 0} PDF
                   </span>
                   <Button
                     href={`/app/subjects/${subject.id}`}

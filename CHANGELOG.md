@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - Fase 3: Datos, Materias y Temas
+- Creación de la migración SQL (`supabase/migrations/20261110000002_phase3_subjects_topics_and_rls.sql`) para `public.subjects` y `public.topics` con jerarquía `parent_topic_id`, `sort_order`, índices, triggers (`set_updated_at`, `enforce_subject_publication_rules`, `enforce_topic_hierarchy_integrity`) y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
+- Implementación de reglas puras y contratos en `src/domain/subjects/` y `src/domain/topics/` (validación de visibilidad pública exclusiva para `admin`, aislamiento de propietarios, prevención de ciclos jerárquicos `wouldCreateTopicCycle` y árbol ordenado `buildOrderedTopicTree`).
+- Implementación de casos de uso (`src/application/subjects/` y `src/application/topics/`) y adaptadores (`SupabaseSubjectsRepository`, `SupabaseTopicsRepository`, `InMemoryStudyCatalogStore`).
+- Conexión de Server Actions y formularios interactivos en `/app/subjects`, `/app/subjects/new`, `/app/subjects/[id]`, `/app/topics/[id]`, `/library` y `/library/[id]`.
+- Adición de pruebas unitarias y de integración en Vitest cubriendo los Casos Imprescindibles #3, #4 y #5, restricción de catálogo público por rol y jerarquía de temas sin ciclos.
+
 ## [0.3.0] - Fase 2: Supabase y Autenticación
 - Integración de `@supabase/supabase-js` y `@supabase/ssr` con detección segura `isSupabaseConfigured()` y protección de `SUPABASE_SERVICE_ROLE_KEY` en `src/config/env.ts`.
 - Creación de la primera migración SQL reproducible (`supabase/migrations/20261110000001_phase2_profiles_and_rls.sql`) con tabla `public.profiles`, función `public.is_admin()`, trigger `on_auth_user_created` (rol inicial `'user'`), trigger `prevent_profile_role_escalation` y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
