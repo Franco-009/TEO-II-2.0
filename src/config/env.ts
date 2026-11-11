@@ -10,7 +10,7 @@ const PLACEHOLDER_SERVICE_ROLE_KEY = "tu-service-role-key-solo-servidor";
 
 export const APP_CONFIG = {
   appName: "StudyPlay",
-  version: "0.7.0",
+  version: "0.8.0",
   enableAiFeatures: process.env.ENABLE_AI_FEATURES === "true" ? true : false,
   maxPdfSizeBytes: Number(process.env.MAX_PDF_SIZE_BYTES ?? 15_728_640), // 15 MB
   masteryMinAttempts: 5,

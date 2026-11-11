@@ -15,6 +15,7 @@ import type {
   SubmitAnswerOutput,
 } from "@/domain/quizzes/quizzes.types";
 import { resolveServerActorContext } from "@/features/subjects/actor-context";
+import { SupabaseProgressRepository } from "@/infrastructure/supabase/supabase-progress.repository";
 import { SupabaseQuestionsRepository } from "@/infrastructure/supabase/supabase-questions.repository";
 import { SupabaseQuizzesRepository } from "@/infrastructure/supabase/supabase-quizzes.repository";
 import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
@@ -38,6 +39,7 @@ export async function startQuizAction(
   if (result.ok) {
     revalidatePath(`/app/quizzes/${result.data.session.id}`);
     revalidatePath("/app");
+    revalidatePath("/app/progress");
   }
 
   return result;
@@ -49,10 +51,12 @@ export async function submitAnswerAction(
   const actor = await resolveServerActorContext();
   const questionsRepo = new SupabaseQuestionsRepository();
   const quizzesRepo = new SupabaseQuizzesRepository();
+  const progressRepo = new SupabaseProgressRepository();
 
   const result = await submitAnswerUseCase({
     questionsRepo,
     quizzesRepo,
+    progressRepo,
     actor,
     input,
   });
@@ -61,6 +65,8 @@ export async function submitAnswerAction(
     revalidatePath(`/app/quizzes/${input.sessionId}`);
     revalidatePath(`/app/sessions/${input.sessionId}/result`);
     revalidatePath("/app/review");
+    revalidatePath("/app");
+    revalidatePath("/app/progress");
   }
 
   return result;
@@ -71,9 +77,11 @@ export async function completeQuizAction(
 ): Promise<QuizResult<QuizSessionEntity>> {
   const actor = await resolveServerActorContext();
   const quizzesRepo = new SupabaseQuizzesRepository();
+  const progressRepo = new SupabaseProgressRepository();
 
   const result = await completeQuizUseCase({
     quizzesRepo,
+    progressRepo,
     actor,
     sessionId,
   });
@@ -83,6 +91,7 @@ export async function completeQuizAction(
     revalidatePath(`/app/sessions/${sessionId}/result`);
     revalidatePath("/app/review");
     revalidatePath("/app");
+    revalidatePath("/app/progress");
   }
 
   return result;

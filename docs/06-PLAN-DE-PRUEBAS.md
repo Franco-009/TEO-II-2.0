@@ -14,7 +14,7 @@
 5. Materia pública en estado `draft` o `archived` no aparece en el catálogo público[cite: 15, 19].
 6. Pregunta `single_choice` rechaza IDs de opciones que no pertenecen a esa pregunta (`quizzes.rules.test.ts`)[cite: 17, 19].
 7. Pregunta `multiple_select` solo marca acierto cuando coincide el conjunto completo de opciones correctas (`quizzes.rules.test.ts`)[cite: 5, 17, 19].
-8. Reintento de red no duplica puntos en `xp_events` (idempotencia por `event_key`)[cite: 6, 14, 19, 23].
+8. Reintento de red no duplica puntos en `xp_events` (idempotencia por `event_key`) (`progress.use-cases.test.ts`)[cite: 6, 14, 19, 23].
 9. Usuario no puede enviar respuestas a una `quiz_session` ajena o ya cerrada (`SESSION_CLOSED`) (`quizzes.use-cases.test.ts`)[cite: 17, 19].
 10. PDF privado de Usuario A no puede descargarse desde cuenta de Usuario B[cite: 19, 21].
 11. El sistema compila y permite estudiar/jugar con `ENABLE_AI_FEATURES=false`[cite: 19, 23].

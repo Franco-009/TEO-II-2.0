@@ -86,6 +86,7 @@ export interface SubmitAnswerOutput {
   sessionScore: number;
   sessionAccuracy: number;
   wasDuplicateRetry: boolean;
+  xpAwarded?: number;
 }
 
 export interface QuizSessionDetail {

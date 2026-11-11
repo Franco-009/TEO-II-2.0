@@ -1,4 +1,5 @@
 import React from "react";
+import { getSessionXpBreakdownUseCase } from "@/application/progress/progress.use-cases";
 import { getQuizSessionDetailsUseCase } from "@/application/quizzes/quizzes.use-cases";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -8,6 +9,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { calculateSessionSummary } from "@/domain/quizzes/quizzes.rules";
 import { MOCK_QUESTIONS } from "@/features/mock-data/phase1-fixtures";
 import { resolveServerActorContext } from "@/features/subjects/actor-context";
+import { SupabaseProgressRepository } from "@/infrastructure/supabase/supabase-progress.repository";
 import { SupabaseQuestionsRepository } from "@/infrastructure/supabase/supabase-questions.repository";
 import { SupabaseQuizzesRepository } from "@/infrastructure/supabase/supabase-quizzes.repository";
 
@@ -20,13 +22,23 @@ export default async function SessionResultPage({
   const actor = await resolveServerActorContext();
   const questionsRepo = new SupabaseQuestionsRepository();
   const quizzesRepo = new SupabaseQuizzesRepository();
+  const progressRepo = new SupabaseProgressRepository();
 
-  const detailRes = await getQuizSessionDetailsUseCase({
-    questionsRepo,
-    quizzesRepo,
-    actor,
-    sessionId: id,
-  });
+  const [detailRes, xpBreakdownRes] = await Promise.all([
+    getQuizSessionDetailsUseCase({
+      questionsRepo,
+      quizzesRepo,
+      actor,
+      sessionId: id,
+    }),
+    actor?.userId
+      ? getSessionXpBreakdownUseCase({
+          progressRepo,
+          userId: actor.userId,
+          sessionId: id,
+        })
+      : Promise.resolve(null),
+  ]);
 
   const session = detailRes.ok ? detailRes.data.session : null;
   const questions = detailRes.ok ? detailRes.data.questions : [];
@@ -37,10 +49,22 @@ export default async function SessionResultPage({
     questions.length || undefined
   );
 
+  const xpBreakdown =
+    xpBreakdownRes && xpBreakdownRes.ok ? xpBreakdownRes.data : null;
+
+  const fallbackXp =
+    summary.correctCount * 10 + (session?.status === "completed" ? 20 : 0);
+  const totalSessionXp =
+    xpBreakdown && xpBreakdown.totalSessionXp > 0
+      ? xpBreakdown.totalSessionXp
+      : fallbackXp;
+
   const accuracyDisplay = session
     ? `${Math.round(summary.accuracy || session.accuracy)}%`
     : "80%";
-  const scoreDisplay = session ? `${summary.score || session.score} pts` : "80 pts";
+  const scoreDisplay = session
+    ? `${summary.score || session.score} pts`
+    : "80 pts";
   const totalSeconds = Math.max(1, Math.round(summary.totalElapsedMs / 1000));
 
   const attemptsByQuestionId = new Map(
@@ -59,16 +83,14 @@ export default async function SessionResultPage({
         }`}
         description={`Estado de sesión: ${
           session?.status ?? "completed"
-        } • Corrección determinista registrada en historial con captura de question_version.`}
+        } • Corrección determinista e idempotencia XP por event_key.`}
         badge={
           <StatusBadge
-            variant={
-              session?.status === "completed" ? "success" : "info"
-            }
+            variant={session?.status === "completed" ? "success" : "info"}
             label={
               session?.status === "completed"
-                ? "Partida Completada (+30 XP)"
-                : "Sesión en Progreso"
+                ? `Partida Completada (+${totalSessionXp} XP)`
+                : `Sesión en Progreso (+${totalSessionXp} XP)`
             }
           />
         }
@@ -78,7 +100,7 @@ export default async function SessionResultPage({
         }}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Precisión Final"
           value={accuracyDisplay}
@@ -97,6 +119,16 @@ export default async function SessionResultPage({
           status={{ variant: "neutral", label: "Registrado" }}
         />
         <StatCard
+          label="Experiencia Ganada"
+          value={`+${totalSessionXp} XP`}
+          helperText={
+            session?.status === "completed"
+              ? `${summary.correctCount * 10} XP aciertos + 20 XP cierre`
+              : `${summary.correctCount * 10} XP aciertos parciales`
+          }
+          status={{ variant: "success", label: "Idempotente" }}
+        />
+        <StatCard
           label="Tiempo Empleado"
           value={`${totalSeconds}s`}
           helperText={`Modo: ${session?.mode ?? "practice"}`}
@@ -106,8 +138,8 @@ export default async function SessionResultPage({
 
       <SemanticAlert
         variant="success"
-        title="Historial de intentos preservado"
-        description="Cada intento quedó almacenado con su question_version exacta. Las preguntas incorrectas están disponibles en el Modo Repaso de Errores."
+        title="Historial de intentos y eventos XP preservados"
+        description="Cada intento quedó almacenado con su question_version exacta y sus puntos de experiencia fueron emitidos con event_key único para evitar duplicados ante reintentos de red."
       />
 
       <section
@@ -133,7 +165,7 @@ export default async function SessionResultPage({
                   isCorrect ? (
                     <StatusBadge
                       variant="success"
-                      label="Acierto registrado"
+                      label="Acierto registrado (+10 XP)"
                     />
                   ) : (
                     <StatusBadge

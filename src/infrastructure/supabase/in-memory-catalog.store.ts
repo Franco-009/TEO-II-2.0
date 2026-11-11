@@ -9,6 +9,16 @@ import type {
   DocumentStatus,
   SignedDocumentUrl,
 } from "@/domain/documents/documents.types";
+import {
+  addUtcDays,
+  getXpPointsForEventType,
+  normalizeDateString,
+} from "@/domain/gamification/gamification.rules";
+import type {
+  AwardXpInput,
+  AwardXpOutput,
+  XpEventEntity,
+} from "@/domain/gamification/gamification.types";
 import type {
   ContentStatus,
   ContentVisibility,
@@ -16,6 +26,12 @@ import type {
   QuestionType,
   QuizMode,
 } from "@/domain/models/studyplay";
+import type { ProgressRepository } from "@/domain/progress/progress.ports";
+import type {
+  DailyActivityEntity,
+  ProgressResult,
+  RecordDailyActivityInput,
+} from "@/domain/progress/progress.types";
 import type { QuestionsRepository } from "@/domain/questions/questions.ports";
 import type {
   QuestionEntity,
@@ -299,6 +315,170 @@ function buildInitialAttempts(): AttemptEntity[] {
       answeredAt: "2026-11-10T11:31:00.000Z",
       questionVersion: 1,
     },
+    {
+      id: "att-hist-1",
+      sessionId: "session-hist-1",
+      userId: MOCK_USER_PROFILE.id,
+      questionId: "q-101",
+      responseJson: { selectedOptionIds: ["opt-1"] },
+      isCorrect: true,
+      elapsedMs: 8500,
+      answeredAt: "2026-11-08T10:15:00.000Z",
+      questionVersion: 2,
+    },
+    {
+      id: "att-hist-2",
+      sessionId: "session-hist-2",
+      userId: MOCK_USER_PROFILE.id,
+      questionId: "q-101",
+      responseJson: { selectedOptionIds: ["opt-1"] },
+      isCorrect: true,
+      elapsedMs: 7400,
+      answeredAt: "2026-11-09T10:15:00.000Z",
+      questionVersion: 2,
+    },
+    {
+      id: "att-hist-3",
+      sessionId: "session-hist-3",
+      userId: MOCK_USER_PROFILE.id,
+      questionId: "q-101",
+      responseJson: { selectedOptionIds: ["opt-1"] },
+      isCorrect: true,
+      elapsedMs: 6900,
+      answeredAt: "2026-11-09T18:20:00.000Z",
+      questionVersion: 2,
+    },
+    {
+      id: "att-hist-4",
+      sessionId: "session-hist-4",
+      userId: MOCK_USER_PROFILE.id,
+      questionId: "q-101",
+      responseJson: { selectedOptionIds: ["opt-1"] },
+      isCorrect: true,
+      elapsedMs: 6100,
+      answeredAt: "2026-11-10T09:10:00.000Z",
+      questionVersion: 2,
+    },
+    {
+      id: "att-hist-5",
+      sessionId: "session-hist-5",
+      userId: MOCK_USER_PROFILE.id,
+      questionId: "q-101",
+      responseJson: { selectedOptionIds: ["opt-1"] },
+      isCorrect: true,
+      elapsedMs: 5800,
+      answeredAt: "2026-11-10T11:25:00.000Z",
+      questionVersion: 2,
+    },
+  ];
+}
+
+function buildInitialXpEvents(): XpEventEntity[] {
+  const userId = MOCK_USER_PROFILE.id;
+  return [
+    {
+      id: "xp-seed-1",
+      userId,
+      eventKey: `attempt_correct:session-hist-1:q-101`,
+      eventType: "attempt_correct",
+      points: 10,
+      referenceId: "session-hist-1",
+      createdAt: "2026-11-08T10:15:00.000Z",
+    },
+    {
+      id: "xp-seed-2",
+      userId,
+      eventKey: `attempt_correct:session-hist-2:q-101`,
+      eventType: "attempt_correct",
+      points: 10,
+      referenceId: "session-hist-2",
+      createdAt: "2026-11-09T10:15:00.000Z",
+    },
+    {
+      id: "xp-seed-3",
+      userId,
+      eventKey: `attempt_correct:session-hist-3:q-101`,
+      eventType: "attempt_correct",
+      points: 10,
+      referenceId: "session-hist-3",
+      createdAt: "2026-11-09T18:20:00.000Z",
+    },
+    {
+      id: "xp-seed-4",
+      userId,
+      eventKey: `attempt_correct:session-hist-4:q-101`,
+      eventType: "attempt_correct",
+      points: 10,
+      referenceId: "session-hist-4",
+      createdAt: "2026-11-10T09:10:00.000Z",
+    },
+    {
+      id: "xp-seed-5",
+      userId,
+      eventKey: `attempt_correct:session-hist-5:q-101`,
+      eventType: "attempt_correct",
+      points: 10,
+      referenceId: "session-hist-5",
+      createdAt: "2026-11-10T11:25:00.000Z",
+    },
+    {
+      id: "xp-seed-6",
+      userId,
+      eventKey: `quiz_completed:session-hist-5`,
+      eventType: "quiz_completed",
+      points: 20,
+      referenceId: "session-hist-5",
+      createdAt: "2026-11-10T11:26:00.000Z",
+    },
+    {
+      id: "xp-seed-7",
+      userId,
+      eventKey: `topic_mastered:${userId}:top-cardio-1`,
+      eventType: "topic_mastered",
+      points: 50,
+      referenceId: "top-cardio-1",
+      createdAt: "2026-11-10T11:26:05.000Z",
+    },
+  ];
+}
+
+function buildInitialDailyActivities(): DailyActivityEntity[] {
+  const userId = MOCK_USER_PROFILE.id;
+  const todayStr = normalizeDateString(new Date());
+  const nowIso = new Date().toISOString();
+
+  // Crear 3 días consecutivos hasta hoy para que el usuario demo tenga racha activa verificable
+  return [
+    {
+      id: "daily-seed-3",
+      userId,
+      activityDate: todayStr,
+      questionsAnswered: 6,
+      correctAnswers: 5,
+      quizzesCompleted: 1,
+      minutesStudied: 24,
+      updatedAt: nowIso,
+    },
+    {
+      id: "daily-seed-2",
+      userId,
+      activityDate: addUtcDays(todayStr, -1),
+      questionsAnswered: 10,
+      correctAnswers: 8,
+      quizzesCompleted: 2,
+      minutesStudied: 35,
+      updatedAt: nowIso,
+    },
+    {
+      id: "daily-seed-1",
+      userId,
+      activityDate: addUtcDays(todayStr, -2),
+      questionsAnswered: 8,
+      correctAnswers: 7,
+      quizzesCompleted: 1,
+      minutesStudied: 28,
+      updatedAt: nowIso,
+    },
   ];
 }
 
@@ -309,7 +489,8 @@ export class InMemoryStudyCatalogStore
     DocumentsRepository,
     PrivateDocumentStoragePort,
     QuestionsRepository,
-    QuizzesRepository
+    QuizzesRepository,
+    ProgressRepository
 {
   private subjects: SubjectEntity[];
   private topics: TopicEntity[];
@@ -317,6 +498,8 @@ export class InMemoryStudyCatalogStore
   private questions: QuestionEntity[];
   private quizSessions: QuizSessionEntity[];
   private attempts: AttemptEntity[];
+  private xpEvents: XpEventEntity[];
+  private dailyActivities: DailyActivityEntity[];
   private storedBlobs = new Set<string>();
   private seq = 100;
 
@@ -327,6 +510,10 @@ export class InMemoryStudyCatalogStore
     this.questions = seedWithDefaults ? buildInitialQuestions() : [];
     this.quizSessions = seedWithDefaults ? buildInitialQuizSessions() : [];
     this.attempts = seedWithDefaults ? buildInitialAttempts() : [];
+    this.xpEvents = seedWithDefaults ? buildInitialXpEvents() : [];
+    this.dailyActivities = seedWithDefaults
+      ? buildInitialDailyActivities()
+      : [];
     for (const doc of this.documents) {
       if (doc.status === "available") {
         this.storedBlobs.add(doc.storagePath);
@@ -1215,6 +1402,142 @@ export class InMemoryStudyCatalogStore
       );
     }
     return { ok: true, data: list };
+  }
+
+  // --- ProgressRepository (Fase 7) ---
+
+  async awardXpEventIdempotent(
+    input: AwardXpInput
+  ): Promise<ProgressResult<AwardXpOutput>> {
+    const normalizedKey = input.eventKey.trim();
+    if (normalizedKey.length < 3) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "El event_key debe tener al menos 3 caracteres.",
+        },
+      };
+    }
+
+    const expectedPoints = getXpPointsForEventType(input.eventType);
+    if (input.points !== expectedPoints || input.points <= 0) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `El evento ${input.eventType} requiere exactamente ${expectedPoints} puntos XP.`,
+        },
+      };
+    }
+
+    // Caso Imprescindible #8: Idempotencia estricta por event_key
+    const existing = this.xpEvents.find((ev) => ev.eventKey === normalizedKey);
+    if (existing) {
+      return {
+        ok: true,
+        data: {
+          event: existing,
+          wasDuplicate: true,
+        },
+      };
+    }
+
+    this.seq += 1;
+    const created: XpEventEntity = {
+      id: `xp-${this.seq}`,
+      userId: input.userId,
+      eventKey: normalizedKey,
+      eventType: input.eventType,
+      points: expectedPoints,
+      referenceId: input.referenceId ?? null,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.xpEvents.unshift(created);
+    return {
+      ok: true,
+      data: {
+        event: created,
+        wasDuplicate: false,
+      },
+    };
+  }
+
+  async listXpEventsByUser(
+    userId: string
+  ): Promise<ProgressResult<XpEventEntity[]>> {
+    const events = this.xpEvents
+      .filter((ev) => ev.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return { ok: true, data: events };
+  }
+
+  async recordDailyActivityIncrement(
+    input: RecordDailyActivityInput
+  ): Promise<ProgressResult<DailyActivityEntity>> {
+    const activityDate = normalizeDateString(input.activityDate);
+    if (!activityDate) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Fecha de actividad diaria inválida.",
+        },
+      };
+    }
+
+    const qDelta = Math.max(0, Math.floor(input.questionsAnsweredDelta ?? 0));
+    const cDelta = Math.max(0, Math.floor(input.correctAnswersDelta ?? 0));
+    const zDelta = Math.max(0, Math.floor(input.quizzesCompletedDelta ?? 0));
+    const mDelta = Math.max(0, Math.floor(input.minutesStudiedDelta ?? 0));
+
+    const idx = this.dailyActivities.findIndex(
+      (d) => d.userId === input.userId && d.activityDate === activityDate
+    );
+
+    const nowIso = new Date().toISOString();
+    if (idx >= 0) {
+      const prev = this.dailyActivities[idx];
+      const nextQuestions = prev.questionsAnswered + qDelta;
+      const nextCorrect = Math.min(nextQuestions, prev.correctAnswers + cDelta);
+      const updated: DailyActivityEntity = {
+        ...prev,
+        questionsAnswered: nextQuestions,
+        correctAnswers: nextCorrect,
+        quizzesCompleted: prev.quizzesCompleted + zDelta,
+        minutesStudied: prev.minutesStudied + mDelta,
+        updatedAt: nowIso,
+      };
+      this.dailyActivities[idx] = updated;
+      return { ok: true, data: updated };
+    }
+
+    this.seq += 1;
+    const nextQuestions = qDelta;
+    const nextCorrect = Math.min(nextQuestions, cDelta);
+    const created: DailyActivityEntity = {
+      id: `daily-${this.seq}`,
+      userId: input.userId,
+      activityDate,
+      questionsAnswered: nextQuestions,
+      correctAnswers: nextCorrect,
+      quizzesCompleted: zDelta,
+      minutesStudied: mDelta,
+      updatedAt: nowIso,
+    };
+
+    this.dailyActivities.unshift(created);
+    return { ok: true, data: created };
+  }
+
+  async listDailyActivityByUser(
+    userId: string
+  ): Promise<ProgressResult<DailyActivityEntity[]>> {
+    const items = this.dailyActivities
+      .filter((d) => d.userId === userId)
+      .sort((a, b) => b.activityDate.localeCompare(a.activityDate));
+    return { ok: true, data: items };
   }
 }
 

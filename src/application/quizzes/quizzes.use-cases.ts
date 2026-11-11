@@ -1,5 +1,10 @@
+import {
+  recordAttemptGamificationUseCase,
+  recordQuizCompletionGamificationUseCase,
+} from "@/application/progress/progress.use-cases";
 import { buildMistakeQuestionQueue } from "@/domain/attempts/attempts.rules";
 import type { MistakeQuestionItem } from "@/domain/attempts/attempts.types";
+import type { ProgressRepository } from "@/domain/progress/progress.ports";
 import type { QuestionsRepository } from "@/domain/questions/questions.ports";
 import type { QuestionEntity } from "@/domain/questions/questions.types";
 import type { QuizzesRepository } from "@/domain/quizzes/quizzes.ports";
@@ -151,13 +156,39 @@ export async function startQuizUseCase(params: {
  * - Caso Imprescindible #7: exige coincidencia exacta del conjunto en `multiple_select`.
  * - Idempotencia: si `(sessionId, questionId)` ya existe, devuelve el intento previo sin duplicar ni alterar el puntaje.
  */
+function resolveProgressRepo(
+  explicitRepo?: ProgressRepository,
+  fallbackCandidate?: unknown
+): ProgressRepository | null {
+  if (explicitRepo) {
+    return explicitRepo;
+  }
+  if (
+    fallbackCandidate &&
+    typeof (fallbackCandidate as ProgressRepository).awardXpEventIdempotent ===
+      "function"
+  ) {
+    return fallbackCandidate as ProgressRepository;
+  }
+  return null;
+}
+
 export async function submitAnswerUseCase(params: {
   questionsRepo: QuestionsRepository;
   quizzesRepo: QuizzesRepository;
+  progressRepo?: ProgressRepository;
   actor: ActorContext | null;
   input: SubmitAnswerInput;
+  activityDate?: string | Date;
 }): Promise<QuizResult<SubmitAnswerOutput>> {
-  const { questionsRepo, quizzesRepo, actor, input } = params;
+  const {
+    questionsRepo,
+    quizzesRepo,
+    progressRepo,
+    actor,
+    input,
+    activityDate,
+  } = params;
 
   if (!actor || !actor.userId) {
     return {
@@ -280,6 +311,26 @@ export async function submitAnswerUseCase(params: {
     completedAt: null,
   });
 
+  // Fase 7: Registrar actividad diaria y otorgar XP de forma idempotente (+10 acierto, +30 objetivo diario, +50 tema dominado)
+  let xpAwarded = 0;
+  const resolvedProgressRepo = resolveProgressRepo(progressRepo, quizzesRepo);
+  if (resolvedProgressRepo) {
+    const gamificationRes = await recordAttemptGamificationUseCase({
+      progressRepo: resolvedProgressRepo,
+      quizzesRepo,
+      questionsRepo,
+      userId: actor.userId,
+      sessionId: session.id,
+      question,
+      attempt,
+      wasDuplicateRetry,
+      activityDate,
+    });
+    if (gamificationRes.ok) {
+      xpAwarded = gamificationRes.data.totalNewPoints;
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -288,19 +339,23 @@ export async function submitAnswerUseCase(params: {
       sessionScore: summary.score,
       sessionAccuracy: summary.accuracy,
       wasDuplicateRetry,
+      xpAwarded,
     },
   };
 }
 
 /**
- * Cierra una sesión activa (`status = 'completed'`), consolidando su `score`, `accuracy` y `completedAt`.
+ * Cierra una sesión activa (`status = 'completed'`), consolidando su `score`, `accuracy` y `completedAt`,
+ * y otorgando `+20 XP` idempotente (`quiz_completed:{sessionId}`).
  */
 export async function completeQuizUseCase(params: {
   quizzesRepo: QuizzesRepository;
+  progressRepo?: ProgressRepository;
   actor: ActorContext | null;
   sessionId: string;
+  activityDate?: string | Date;
 }): Promise<QuizResult<QuizSessionEntity>> {
-  const { quizzesRepo, actor, sessionId } = params;
+  const { quizzesRepo, progressRepo, actor, sessionId, activityDate } = params;
 
   if (!actor || !actor.userId) {
     return {
@@ -334,7 +389,19 @@ export async function completeQuizUseCase(params: {
     };
   }
 
+  const resolvedProgressRepo = resolveProgressRepo(progressRepo, quizzesRepo);
+
   if (session.status === "completed") {
+    // Reintento idempotente: no duplica XP ni altera la sesión cerrada
+    if (resolvedProgressRepo) {
+      await recordQuizCompletionGamificationUseCase({
+        progressRepo: resolvedProgressRepo,
+        userId: actor.userId,
+        sessionId: session.id,
+        wasAlreadyCompleted: true,
+        activityDate,
+      });
+    }
     return { ok: true, data: session };
   }
 
@@ -357,12 +424,24 @@ export async function completeQuizUseCase(params: {
 
   const summary = calculateSessionSummary(attempts, configuredCount);
 
-  return quizzesRepo.updateQuizSessionProgress(session.id, {
+  const updatedRes = await quizzesRepo.updateQuizSessionProgress(session.id, {
     status: "completed",
     score: summary.score,
     accuracy: summary.accuracy,
     completedAt: new Date().toISOString(),
   });
+
+  if (updatedRes.ok && resolvedProgressRepo) {
+    await recordQuizCompletionGamificationUseCase({
+      progressRepo: resolvedProgressRepo,
+      userId: actor.userId,
+      sessionId: session.id,
+      wasAlreadyCompleted: false,
+      activityDate,
+    });
+  }
+
+  return updatedRes;
 }
 
 /**
