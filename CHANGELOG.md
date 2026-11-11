@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0] - Fase 5: Preguntas y Editor Determinista
+- Creación de la migración SQL (`supabase/migrations/20261110000004_phase5_questions_and_options_rls.sql`) para `public.questions` y `public.question_options` con `source_document_id REFERENCES public.documents(id) ON DELETE SET NULL`, `source_document_name`, trigger `enforce_question_integrity` (autocompletado de fuente, incremento automático de `version` y validación de publicación), funciones `can_read_question`/`can_write_question` y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
+- Implementación de reglas puras y contratos en `src/domain/questions/` (validación flexible en `draft` vs. validación estricta en `published` para `single_choice`, `true_false` y `multiple_select`, cálculo de `version` `computeNextQuestionVersion` y estado `"Fuente no disponible"`).
+- Implementación de casos de uso en `src/application/questions/questions.use-cases.ts`, `SupabaseQuestionsRepository` y soporte completo en `InMemoryStudyCatalogStore` incluyendo el comportamiento `ON DELETE SET NULL` preservando `sourceDocumentName` cuando se elimina un PDF.
+- Construcción del editor dinámico y banco de preguntas (`QuestionEditorForm`, `QuestionBankList`, `questions.actions.ts`) con vista previa interactiva como estudiante, conectados en `/app/topics/[id]`, `/app/subjects/[id]` y `/library/[id]`.
+- Adición de suites de pruebas en Vitest (`questions.rules.test.ts` y `questions.use-cases.test.ts`) verificando bloqueo de publicación de preguntas mal configuradas por tipo, incremento de `version`, preservación de preguntas al borrar su PDF fuente y aislamiento RLS entre usuarios.
+
 ## [0.5.0] - Fase 4: Documentos PDF y Storage Privado
 - Creación de la migración SQL (`supabase/migrations/20261110000003_phase4_documents_and_storage_rls.sql`) para `public.documents` con restricciones MIME `application/pdf`, límite de 15 MB (`15_728_640` bytes), trigger `enforce_document_integrity`, políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) y provisión del bucket privado `study-documents` con políticas RLS sobre `storage.objects` (`{user_id}/{document_id}/{filename}`).
 - Implementación de reglas puras y contratos en `src/domain/documents/` (validación de extensión `.pdf`, MIME `application/pdf`, firma de cabecera `%PDF-`, sanitización determinista de nombre de archivo, máquina de estados `uploading -> available / failed` con reintento idempotente y aislamiento estricto por propietario).

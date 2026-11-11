@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { listSubjectDocumentsUseCase } from "@/application/documents/documents.use-cases";
+import { listSubjectQuestionsUseCase } from "@/application/questions/questions.use-cases";
 import { getSubjectByIdUseCase } from "@/application/subjects/subjects.use-cases";
 import { listSubjectTopicsTreeUseCase } from "@/application/topics/topics.use-cases";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +16,7 @@ import { resolveServerActorContext } from "@/features/subjects/actor-context";
 import { SubjectStatusControl } from "@/features/subjects/components/SubjectStatusControl";
 import { CreateTopicForm } from "@/features/topics/components/CreateTopicForm";
 import { SupabaseDocumentsRepository } from "@/infrastructure/supabase/supabase-documents.repository";
+import { SupabaseQuestionsRepository } from "@/infrastructure/supabase/supabase-questions.repository";
 import { SupabaseSubjectsRepository } from "@/infrastructure/supabase/supabase-subjects.repository";
 import { SupabaseTopicsRepository } from "@/infrastructure/supabase/supabase-topics.repository";
 
@@ -28,6 +30,7 @@ export default async function SubjectDetailPage({
   const subjectsRepo = new SupabaseSubjectsRepository();
   const topicsRepo = new SupabaseTopicsRepository();
   const docsRepo = new SupabaseDocumentsRepository();
+  const questionsRepo = new SupabaseQuestionsRepository();
 
   const subjectRes = await getSubjectByIdUseCase(subjectsRepo, actor, id);
   const fallback = MOCK_PRIVATE_SUBJECTS[0];
@@ -45,13 +48,35 @@ export default async function SubjectDetailPage({
         updatedAt: fallback.updatedAt,
       };
 
-  const [topicsTreeRes, subjectDocsRes] = await Promise.all([
-    listSubjectTopicsTreeUseCase(subjectsRepo, topicsRepo, actor, subject.id),
-    listSubjectDocumentsUseCase(subjectsRepo, docsRepo, actor, subject.id),
-  ]);
+  const [topicsTreeRes, subjectDocsRes, subjectQuestionsRes] =
+    await Promise.all([
+      listSubjectTopicsTreeUseCase(
+        subjectsRepo,
+        topicsRepo,
+        actor,
+        subject.id
+      ),
+      listSubjectDocumentsUseCase(subjectsRepo, docsRepo, actor, subject.id),
+      listSubjectQuestionsUseCase({
+        subjectsRepo,
+        questionsRepo,
+        actor,
+        subjectId: subject.id,
+      }),
+    ]);
 
   const topicsTree = topicsTreeRes.ok ? topicsTreeRes.data : [];
   const subjectDocuments = subjectDocsRes.ok ? subjectDocsRes.data : [];
+  const subjectQuestions = subjectQuestionsRes.ok
+    ? subjectQuestionsRes.data
+    : [];
+
+  const publishedQuestionsCount = subjectQuestions.filter(
+    (q) => q.status === "published"
+  ).length;
+  const draftQuestionsCount = subjectQuestions.filter(
+    (q) => q.status === "draft"
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -90,6 +115,36 @@ export default async function SubjectDetailPage({
         subjectId={subject.id}
         currentStatus={subject.status}
       />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-xs text-slate-400 uppercase font-semibold">
+            Temas jerárquicos
+          </p>
+          <p className="text-2xl font-bold text-slate-50 mt-1">
+            {topicsTree.length}
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-slate-400 uppercase font-semibold">
+            Preguntas publicadas / borrador
+          </p>
+          <p className="text-2xl font-bold text-slate-50 mt-1">
+            {publishedQuestionsCount}{" "}
+            <span className="text-xs font-normal text-slate-400">
+              publicadas ({draftQuestionsCount} en draft)
+            </span>
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs text-slate-400 uppercase font-semibold">
+            Documentos PDF privados
+          </p>
+          <p className="text-2xl font-bold text-slate-50 mt-1">
+            {subjectDocuments.length}
+          </p>
+        </Card>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section
@@ -168,7 +223,7 @@ export default async function SubjectDetailPage({
                       variant="secondary"
                       size="sm"
                     >
-                      Ver preguntas y PDFs
+                      Editar preguntas y PDFs
                     </Button>
                   </Card>
                 );
