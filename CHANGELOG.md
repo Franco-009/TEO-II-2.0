@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.0] - Fase 9: Endurecimiento, Publicación y Operación (Cierre del MVP)
+- Creación de la suite de integración E2E multi-actor (`src/__tests__/e2e/mvp-phase9-e2e.test.ts`) que ejercita el flujo completo del MVP de principio a fin (`Visitante`, `Usuario A`, `Usuario B` y `Administrador`) verificando los **12 Casos de Prueba Imprescindibles (Sección 12.2)** y los **16 Criterios de Aceptación (Sección 14)** con `ENABLE_AI_FEATURES=false`.
+- Creación de la suite automatizada de auditoría estática de seguridad, esquema SQL/RLS y secretos (`src/__tests__/security/security-and-rls.audit.test.ts`) verificando las 7 migraciones SQL (`0001`..`0007`), activación de `ENABLE ROW LEVEL SECURITY` y políticas separadas `SELECT`, `INSERT`, `UPDATE`, `DELETE` en las 11 tablas públicas y en `storage.objects`, y ausencia de referencias a `SUPABASE_SERVICE_ROLE_KEY` o repositorios de servidor en los componentes cliente (`"use client"`).
+- Actualización de versión oficial del proyecto a `1.0.0` en `package.json` y `src/config/env.ts`.
+- Sincronización final de documentación operativa y de calidad en `README.md`, `docs/06-PLAN-DE-PRUEBAS.md` (matriz de trazabilidad de los 12 casos imprescindibles y 16 criterios de aceptación), `docs/07-ROADMAP.md` (Fases 0 a 9 completadas) y `docs/09-OPERACION-Y-RECUPERACION.md` (variables de entorno, orden de migraciones, promoción de admin, checklist de despliegue en Vercel y recuperación segura).
+
 ## [0.9.0] - Fase 8: Administración y Biblioteca Pública
 - Creación de la migración SQL (`supabase/migrations/20261110000007_phase8_admin_moderation_and_public_library_rls.sql`) para `public.admin_audit_logs` con trigger inmutable `enforce_admin_audit_log_integrity`, políticas RLS exclusivas para `public.is_admin()` y endurecimiento de `enforce_subject_publication_rules` exigiendo al menos 1 tema y 1 pregunta publicada antes de publicar en el catálogo público.
 - Implementación de reglas puras y contratos en `src/domain/admin/` (`assertAdminActor`, `assertSubjectIsPublic` bloqueando moderar materias privadas con `NOT_PUBLIC_SUBJECT`, `validatePublicSubjectPublicationEligibility`, `buildAdminAuditLogInput` y `filterPublicLibraryCatalog` para el Caso Imprescindible #5).

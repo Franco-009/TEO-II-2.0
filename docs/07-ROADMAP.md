@@ -11,4 +11,4 @@ Regla: Avanzar de fase únicamente cuando se cumpla el criterio de salida verifi
 - [x] **FASE 6 - Motor de juego y corrección:** Tablas `quiz_sessions` y `attempts`, motor de corrección determinista en dominio, pantalla de juego, devolución explicada y modo errores[cite: 6, 9, 21].
 - [x] **FASE 7 - Progreso y gamificación:** Tablas `xp_events` y `user_daily_activity`, cálculo de estadísticas por materia/tema, racha y XP idempotente[cite: 6, 14, 21, 22].
 - [x] **FASE 8 - Administración y biblioteca pública:** Autorización de servidor para rol `admin`, cola de revisión/publicación y moderación en `/admin`[cite: 16, 22].
-- [ ] **FASE 9 - Endurecimiento, publicación y operación:** Suite completa unitaria, integración, RLS y E2E, revisión de privacidad/secretos y despliegue en Vercel[cite: 9, 22].
+- [x] **FASE 9 - Endurecimiento, publicación y operación:** Suite completa unitaria, integración, RLS y E2E, revisión de privacidad/secretos y despliegue en Vercel (`v1.0.0`)[cite: 9, 22].
