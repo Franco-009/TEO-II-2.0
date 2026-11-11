@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0] - Fase 8: Administración y Biblioteca Pública
+- Creación de la migración SQL (`supabase/migrations/20261110000007_phase8_admin_moderation_and_public_library_rls.sql`) para `public.admin_audit_logs` con trigger inmutable `enforce_admin_audit_log_integrity`, políticas RLS exclusivas para `public.is_admin()` y endurecimiento de `enforce_subject_publication_rules` exigiendo al menos 1 tema y 1 pregunta publicada antes de publicar en el catálogo público.
+- Implementación de reglas puras y contratos en `src/domain/admin/` (`assertAdminActor`, `assertSubjectIsPublic` bloqueando moderar materias privadas con `NOT_PUBLIC_SUBJECT`, `validatePublicSubjectPublicationEligibility`, `buildAdminAuditLogInput` y `filterPublicLibraryCatalog` para el Caso Imprescindible #5).
+- Implementación de casos de uso en `src/application/admin/admin.use-cases.ts` (`getAdminDashboardSummaryUseCase`, `moderatePublicSubjectUseCase`, `publishPublicContentUseCase`, `createPublicSubjectDraftUseCase`, `listPublicLibraryCatalogUseCase`), `SupabaseAdminRepository` y soporte completo en `InMemoryStudyCatalogStore`.
+- Conexión de Server Actions y componentes interactivos (`admin.actions.ts`, `AdminModerationQueueClient.tsx`) en `/admin`, `/admin/content`, `/library` y `/library/[id]` con práctica directa sobre materias públicas preservando intentos y XP privados.
+- Adición de suites de pruebas en Vitest (`admin.rules.test.ts` y `admin.use-cases.test.ts`) cubriendo autorización exclusiva `admin`, rechazo `FORBIDDEN_ADMIN_ONLY` a rol `user`, protección `NOT_PUBLIC_SUBJECT`, validación de requisitos de publicación, Caso Imprescindible #5 y bitácora `admin_audit_logs`.
+
 ## [0.8.0] - Fase 7: Progreso y Gamificación
 - Creación de la migración SQL (`supabase/migrations/20261110000006_phase7_progress_and_gamification_rls.sql`) para `public.xp_events` (`event_key TEXT NOT NULL UNIQUE`, `points > 0`) y `public.user_daily_activity` (`UNIQUE(user_id, activity_date)`), triggers `enforce_xp_event_integrity` y `enforce_daily_activity_integrity`, y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) por `user_id = auth.uid()`.
 - Implementación de reglas puras y contratos en `src/domain/gamification/` y `src/domain/progress/` (parámetros centralizados `+10`, `+20`, `+30`, `+50`, constructores deterministas de `event_key`, cálculo de nivel, racha consecutiva `calculateConsecutiveStreak`, agregación de estadísticas por materia/tema y clasificación de dominio exigiendo muestra mínima `>= 5` intentos y precisión `>= 80%`).

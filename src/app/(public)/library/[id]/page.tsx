@@ -5,6 +5,7 @@ import { listSubjectTopicsTreeUseCase } from "@/application/topics/topics.use-ca
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { SemanticAlert } from "@/components/ui/SemanticAlert";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   MOCK_PUBLIC_SUBJECTS,
@@ -81,6 +82,12 @@ export default async function PublicLibraryDetailPage({
         }}
       />
 
+      <SemanticAlert
+        variant="info"
+        title="Práctica pública con progreso privado"
+        description="Puedes practicar libremente sobre esta materia pública. Tus sesiones, intentos, precisión y puntos XP se registran de forma estrictamente privada en tu perfil personal."
+      />
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-xs text-slate-400 uppercase font-semibold">
@@ -129,11 +136,11 @@ export default async function PublicLibraryDetailPage({
                   {topic.questionsCount ?? 0} preguntas
                 </span>
                 <Button
-                  href={`/app/topics/${topic.id}`}
-                  variant="ghost"
+                  href={`/app/quizzes/new?subject=${subject.id}&topic=${topic.id}`}
+                  variant="secondary"
                   size="sm"
                 >
-                  Ver detalle
+                  Practicar tema
                 </Button>
               </div>
             </Card>

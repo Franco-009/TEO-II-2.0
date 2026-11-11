@@ -18,3 +18,4 @@
 | **Intento / Sesión / Resultado (`quiz_sessions`, `attempts`)** | Lectura, creación y cierre propios (`user_id = auth.uid()` y `enforce_attempt_integrity`) | Sin acceso | Sin acceso rutinario al detalle personal[cite: 18] |
 | **PDF privado (`public.documents` y `storage.objects` bucket `study-documents`)** | Acceso propio (`owner_id = auth.uid()` y `(storage.foldername(name))[1] = auth.uid()::text`) mediante URL firmada temporal | Sin acceso | Sin acceso por defecto[cite: 7, 18] |
 | **XP y racha (`xp_events`, `user_daily_activity`)** | Lectura e inserción propias (`user_id = auth.uid()`); `xp_events` inmutable (`UPDATE` denegado) y validado por `enforce_xp_event_integrity` | Sin acceso | Sin modificación manual ordinaria[cite: 18] |
+| **Auditoría administrativa (`admin_audit_logs`)** | Sin acceso | Sin acceso | `SELECT` e `INSERT` exclusivos para `public.is_admin()`; inmutable (`UPDATE` y `DELETE` denegados) |

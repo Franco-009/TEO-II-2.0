@@ -1,3 +1,9 @@
+import type { AdminRepository } from "@/domain/admin/admin.ports";
+import type {
+  AdminAuditLogEntity,
+  AdminResult,
+  CreateAdminAuditLogInput,
+} from "@/domain/admin/admin.types";
 import type { AttemptEntity } from "@/domain/attempts/attempts.types";
 import type {
   DocumentsRepository,
@@ -98,7 +104,46 @@ function buildInitialSubjects(): SubjectEntity[] {
     attemptsCount: s.attemptsCount,
   }));
 
-  return [...privates, ...publics];
+  const moderationExtraPublics: SubjectEntity[] = [
+    {
+      id: "pub-bioestadistica-draft",
+      ownerId: "usr-admin-catalog",
+      title: "Bioestadística Clínica — Unidad 4",
+      description:
+        "Diseño de ensayos clínicos aleatorizados, tamaño muestral, riesgo relativo y curvas de supervivencia de Kaplan-Meier.",
+      visibility: "public",
+      status: "draft",
+      publishedAt: null,
+      createdAt: nowIso,
+      updatedAt: "Hace 3 horas",
+      authorName: "Dr. Martín Pereyra",
+      topicsCount: 1,
+      questionsCount: 1,
+      documentsCount: 0,
+      masteryAccuracy: 0,
+      attemptsCount: 0,
+    },
+    {
+      id: "pub-farmaco-archived",
+      ownerId: "usr-admin-catalog",
+      title: "Guía 2023 Obsoleta de Farmacocinética",
+      description:
+        "Modelos compartimentales y depuración renal (versión histórica reemplazada por plan 2026).",
+      visibility: "public",
+      status: "archived",
+      publishedAt: nowIso,
+      createdAt: nowIso,
+      updatedAt: "Hace 2 semanas",
+      authorName: "Archivo Histórico",
+      topicsCount: 1,
+      questionsCount: 1,
+      documentsCount: 0,
+      masteryAccuracy: 0,
+      attemptsCount: 0,
+    },
+  ];
+
+  return [...privates, ...publics, ...moderationExtraPublics];
 }
 
 function buildInitialTopics(): TopicEntity[] {
@@ -133,6 +178,50 @@ function buildInitialTopics(): TopicEntity[] {
       documentsCount: 0,
       accuracy: 80,
       attemptsCount: 5,
+    },
+    {
+      id: "top-pub-quim-1",
+      subjectId: "pub-quimica",
+      parentTopicId: null,
+      title: "1. Hibridación y Mecanismos SN1 / SN2",
+      description:
+        "Cinética nucleofílica bimolecular vs unimolecular, inversión de Walden y estabilidad de carbocationes.",
+      sortOrder: 1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      questionsCount: 1,
+      documentsCount: 0,
+      accuracy: 75,
+      attemptsCount: 4,
+    },
+    {
+      id: "top-pub-bio-1",
+      subjectId: "pub-bioestadistica-draft",
+      parentTopicId: null,
+      title: "1. Riesgo Relativo y Odds Ratio en Ensayos Clínicos",
+      description:
+        "Medidas de asociación epidemiológica e interpretación de intervalos de confianza del 95%.",
+      sortOrder: 1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      questionsCount: 1,
+      documentsCount: 0,
+      accuracy: 0,
+      attemptsCount: 0,
+    },
+    {
+      id: "top-pub-farm-1",
+      subjectId: "pub-farmaco-archived",
+      parentTopicId: null,
+      title: "1. Cinética de Eliminación de Primer Orden",
+      description: "Vida media plasmática y volumen aparente de distribución.",
+      sortOrder: 1,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      questionsCount: 1,
+      documentsCount: 0,
+      accuracy: 0,
+      attemptsCount: 0,
     },
   ];
 
@@ -265,6 +354,129 @@ function buildInitialQuestions(): QuestionEntity[] {
         {
           id: "opt-pub-d2",
           questionId: "q-pub-202-draft",
+          text: "Falso",
+          isCorrect: false,
+          feedback: "Incorrecto.",
+          sortOrder: 2,
+        },
+      ],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    },
+    {
+      id: "q-pub-301",
+      topicId: "top-pub-quim-1",
+      topicTitle: "1. Hibridación y Mecanismos SN1 / SN2",
+      subjectId: "pub-quimica",
+      subjectTitle: "Química Orgánica I — Fundamentos",
+      authorId: "usr-admin-catalog",
+      type: "single_choice",
+      prompt:
+        "¿Qué característica estereoquímica distingue a una sustitución nucleofílica bimolecular (SN2) sobre un carbono quiral?",
+      explanation:
+        "El mecanismo SN2 ocurre en una sola etapa concertada con ataque dorsal del nucleófilo, produciendo la inversión completa de la configuración (inversión de Walden).",
+      difficulty: "medium",
+      status: "published",
+      sourceDocumentId: null,
+      sourceDocumentName: null,
+      sourceDocumentAvailable: false,
+      sourcePage: null,
+      version: 1,
+      options: [
+        {
+          id: "opt-pub-q1",
+          questionId: "q-pub-301",
+          text: "Inversión completa de la configuración (inversión de Walden)",
+          isCorrect: true,
+          feedback:
+            "Correcto: el estado de transición pentacoordinado invierte la estereoquímica del centro quiral.",
+          sortOrder: 1,
+        },
+        {
+          id: "opt-pub-q2",
+          questionId: "q-pub-301",
+          text: "Racemización total por intermediario carbocatiónico plano",
+          isCorrect: false,
+          feedback:
+            "Incorrecto: la formación de carbocatión planar corresponde al mecanismo SN1.",
+          sortOrder: 2,
+        },
+      ],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    },
+    {
+      id: "q-pub-401",
+      topicId: "top-pub-bio-1",
+      topicTitle: "1. Riesgo Relativo y Odds Ratio en Ensayos Clínicos",
+      subjectId: "pub-bioestadistica-draft",
+      subjectTitle: "Bioestadística Clínica — Unidad 4",
+      authorId: "usr-admin-catalog",
+      type: "single_choice",
+      prompt:
+        "En un ensayo clínico controlado donde el Riesgo Relativo (RR) de un evento adverso es 1.0 con IC 95% [0.62 - 1.48], ¿cuál es la interpretación estadística?",
+      explanation:
+        "Cuando el intervalo de confianza del 95% para el Riesgo Relativo incluye el valor nulo (RR = 1.0), no existe diferencia estadísticamente significativa entre ambos grupos al nivel alfa = 0.05.",
+      difficulty: "medium",
+      status: "published",
+      sourceDocumentId: null,
+      sourceDocumentName: null,
+      sourceDocumentAvailable: false,
+      sourcePage: null,
+      version: 1,
+      options: [
+        {
+          id: "opt-pub-b1",
+          questionId: "q-pub-401",
+          text: "No hay asociación estadísticamente significativa al incluir el valor nulo 1.0",
+          isCorrect: true,
+          feedback:
+            "Correcto: en razones de riesgo el valor neutro es 1.0.",
+          sortOrder: 1,
+        },
+        {
+          id: "opt-pub-b2",
+          questionId: "q-pub-401",
+          text: "El tratamiento duplica significativamente el riesgo del evento",
+          isCorrect: false,
+          feedback: "Incorrecto: el RR puntual es 1.0 y el IC 95% cruza la nulidad.",
+          sortOrder: 2,
+        },
+      ],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    },
+    {
+      id: "q-pub-501",
+      topicId: "top-pub-farm-1",
+      topicTitle: "1. Cinética de Eliminación de Primer Orden",
+      subjectId: "pub-farmaco-archived",
+      subjectTitle: "Guía 2023 Obsoleta de Farmacocinética",
+      authorId: "usr-admin-catalog",
+      type: "true_false",
+      prompt:
+        "En la cinética de eliminación de primer orden, una fracción constante del fármaco se elimina por unidad de tiempo.",
+      explanation:
+        "Verdadero. En cinética de primer orden la velocidad de eliminación es proporcional a la concentración plasmática, manteniendo constante la vida media (t1/2).",
+      difficulty: "easy",
+      status: "published",
+      sourceDocumentId: null,
+      sourceDocumentName: null,
+      sourceDocumentAvailable: false,
+      sourcePage: null,
+      version: 1,
+      options: [
+        {
+          id: "opt-pub-f1",
+          questionId: "q-pub-501",
+          text: "Verdadero",
+          isCorrect: true,
+          feedback: "Correcto.",
+          sortOrder: 1,
+        },
+        {
+          id: "opt-pub-f2",
+          questionId: "q-pub-501",
           text: "Falso",
           isCorrect: false,
           feedback: "Incorrecto.",
@@ -482,6 +694,37 @@ function buildInitialDailyActivities(): DailyActivityEntity[] {
   ];
 }
 
+function buildInitialAdminAuditLogs(): AdminAuditLogEntity[] {
+  return [
+    {
+      id: "audit-seed-1",
+      actorId: MOCK_USER_PROFILE.id,
+      action: "publish_subject",
+      targetType: "subject",
+      targetId: "pub-estadistica",
+      targetTitle: "Probabilidad y Estadística Aplicada",
+      previousStatus: "draft",
+      newStatus: "published",
+      notes:
+        "Publicado en catálogo general (visibility=public, status=published) tras verificación de preguntas.",
+      createdAt: "2026-11-09T14:20:00.000Z",
+    },
+    {
+      id: "audit-seed-2",
+      actorId: MOCK_USER_PROFILE.id,
+      action: "archive_subject",
+      targetType: "subject",
+      targetId: "pub-farmaco-archived",
+      targetTitle: "Guía 2023 Obsoleta de Farmacocinética",
+      previousStatus: "published",
+      newStatus: "archived",
+      notes:
+        "Retirada de búsquedas nuevas; conserva integridad de intentos previos de los estudiantes.",
+      createdAt: "2026-11-10T09:00:00.000Z",
+    },
+  ];
+}
+
 export class InMemoryStudyCatalogStore
   implements
     SubjectsRepository,
@@ -490,7 +733,8 @@ export class InMemoryStudyCatalogStore
     PrivateDocumentStoragePort,
     QuestionsRepository,
     QuizzesRepository,
-    ProgressRepository
+    ProgressRepository,
+    AdminRepository
 {
   private subjects: SubjectEntity[];
   private topics: TopicEntity[];
@@ -500,6 +744,7 @@ export class InMemoryStudyCatalogStore
   private attempts: AttemptEntity[];
   private xpEvents: XpEventEntity[];
   private dailyActivities: DailyActivityEntity[];
+  private adminAuditLogs: AdminAuditLogEntity[];
   private storedBlobs = new Set<string>();
   private seq = 100;
 
@@ -513,6 +758,9 @@ export class InMemoryStudyCatalogStore
     this.xpEvents = seedWithDefaults ? buildInitialXpEvents() : [];
     this.dailyActivities = seedWithDefaults
       ? buildInitialDailyActivities()
+      : [];
+    this.adminAuditLogs = seedWithDefaults
+      ? buildInitialAdminAuditLogs()
       : [];
     for (const doc of this.documents) {
       if (doc.status === "available") {
@@ -1538,6 +1786,73 @@ export class InMemoryStudyCatalogStore
       .filter((d) => d.userId === userId)
       .sort((a, b) => b.activityDate.localeCompare(a.activityDate));
     return { ok: true, data: items };
+  }
+
+  // --- AdminRepository (Fase 8) ---
+
+  async listAllPublicSubjectsForModeration(): Promise<
+    AdminResult<SubjectEntity[]>
+  > {
+    const publicSubjects = this.subjects
+      .filter((s) => s.visibility === "public")
+      .map((s) => {
+        const subjectTopicIds = new Set(
+          this.topics.filter((t) => t.subjectId === s.id).map((t) => t.id)
+        );
+        const pubQCount = this.questions.filter(
+          (q) => subjectTopicIds.has(q.topicId) && q.status === "published"
+        ).length;
+
+        return {
+          ...s,
+          topicsCount: subjectTopicIds.size || (s.topicsCount ?? 0),
+          questionsCount: pubQCount || (s.questionsCount ?? 0),
+        };
+      });
+
+    return { ok: true, data: publicSubjects };
+  }
+
+  async recordAuditLog(
+    input: CreateAdminAuditLogInput
+  ): Promise<AdminResult<AdminAuditLogEntity>> {
+    const targetTitle = input.targetTitle.trim();
+    if (!targetTitle) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "El título del recurso auditado es obligatorio.",
+        },
+      };
+    }
+
+    this.seq += 1;
+    const created: AdminAuditLogEntity = {
+      id: `audit-${this.seq}`,
+      actorId: input.actorId.trim(),
+      action: input.action,
+      targetType: input.targetType ?? "subject",
+      targetId: input.targetId.trim(),
+      targetTitle,
+      previousStatus: input.previousStatus,
+      newStatus: input.newStatus,
+      notes: (input.notes ?? "").trim().slice(0, 500),
+      createdAt: new Date().toISOString(),
+    };
+
+    this.adminAuditLogs.unshift(created);
+    return { ok: true, data: created };
+  }
+
+  async listAuditLogs(
+    limit = 20
+  ): Promise<AdminResult<AdminAuditLogEntity[]>> {
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+    const sorted = [...this.adminAuditLogs]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, safeLimit);
+    return { ok: true, data: sorted };
   }
 }
 

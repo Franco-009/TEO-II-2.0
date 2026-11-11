@@ -11,7 +11,7 @@
 2. Visitante no autenticado redirigido al intentar entrar a ruta privada (`/app/*`)[cite: 19, 20].
 3. Dos usuarios crean materias con el mismo título sin cruzar datos[cite: 19].
 4. Propietario edita su materia; otro usuario recibe denegación[cite: 19].
-5. Materia pública en estado `draft` o `archived` no aparece en el catálogo público[cite: 15, 19].
+5. Materia pública en estado `draft` o `archived` no aparece en el catálogo público (`admin.rules.test.ts` y `admin.use-cases.test.ts`)[cite: 15, 19].
 6. Pregunta `single_choice` rechaza IDs de opciones que no pertenecen a esa pregunta (`quizzes.rules.test.ts`)[cite: 17, 19].
 7. Pregunta `multiple_select` solo marca acierto cuando coincide el conjunto completo de opciones correctas (`quizzes.rules.test.ts`)[cite: 5, 17, 19].
 8. Reintento de red no duplica puntos en `xp_events` (idempotencia por `event_key`) (`progress.use-cases.test.ts`)[cite: 6, 14, 19, 23].
