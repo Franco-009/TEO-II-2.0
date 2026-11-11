@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0] - Fase 6: Motor de Juego y Corrección Determinista
+- Creación de la migración SQL (`supabase/migrations/20261110000005_phase6_quiz_sessions_and_attempts_rls.sql`) para `public.quiz_sessions` y `public.attempts` con `UNIQUE (session_id, question_id)`, captura automática de `question_version`, triggers `enforce_quiz_session_integrity` y `enforce_attempt_integrity` (bloqueo de sesiones ajenas o cerradas `SESSION_CLOSED`) y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) por `user_id = auth.uid()`.
+- Implementación del motor de corrección determinista en `src/domain/quizzes/` y `src/domain/attempts/` (`evaluateQuestionAnswer` para `single_choice`, `true_false` y `multiple_select`, `shuffleWithSeed` reproducible por semilla, `selectEligibleQuizQuestions` y `buildMistakeQuestionQueue` sin borrar el historial).
+- Implementación de casos de uso en `src/application/quizzes/quizzes.use-cases.ts` (`startQuizUseCase`, `submitAnswerUseCase`, `completeQuizUseCase`, `getQuizSessionDetailsUseCase`, `getMistakeQuestionsUseCase`), `SupabaseQuizzesRepository` y soporte completo en `InMemoryStudyCatalogStore`.
+- Conexión de componentes interactivos y Server Actions (`StartQuizForm`, `QuizSessionPlayer`, `StartMistakesQuizButton`, `quizzes.actions.ts`) en `/app/quizzes/new`, `/app/quizzes/[id]`, `/app/sessions/[id]/result` y `/app/review`.
+- Adición de suites de pruebas en Vitest (`quizzes.rules.test.ts` y `quizzes.use-cases.test.ts`) cubriendo los Casos Imprescindibles #6, #7 y #9, idempotencia de intentos con captura de `question_version`, orden reproducible con `seed` y Modo Repaso de Errores.
+
 ## [0.6.0] - Fase 5: Preguntas y Editor Determinista
 - Creación de la migración SQL (`supabase/migrations/20261110000004_phase5_questions_and_options_rls.sql`) para `public.questions` y `public.question_options` con `source_document_id REFERENCES public.documents(id) ON DELETE SET NULL`, `source_document_name`, trigger `enforce_question_integrity` (autocompletado de fuente, incremento automático de `version` y validación de publicación), funciones `can_read_question`/`can_write_question` y políticas RLS separadas (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
 - Implementación de reglas puras y contratos en `src/domain/questions/` (validación flexible en `draft` vs. validación estricta en `published` para `single_choice`, `true_false` y `multiple_select`, cálculo de `version` `computeNextQuestionVersion` y estado `"Fuente no disponible"`).

@@ -1,3 +1,4 @@
+import type { AttemptEntity } from "@/domain/attempts/attempts.types";
 import type {
   DocumentsRepository,
   PrivateDocumentStoragePort,
@@ -13,6 +14,7 @@ import type {
   ContentVisibility,
   QuestionDifficulty,
   QuestionType,
+  QuizMode,
 } from "@/domain/models/studyplay";
 import type { QuestionsRepository } from "@/domain/questions/questions.ports";
 import type {
@@ -20,6 +22,13 @@ import type {
   QuestionOptionEntity,
   QuestionResult,
 } from "@/domain/questions/questions.types";
+import type { QuizzesRepository } from "@/domain/quizzes/quizzes.ports";
+import type {
+  QuizResult,
+  QuizSessionEntity,
+  QuizSessionSettings,
+  QuizSessionStatus,
+} from "@/domain/quizzes/quizzes.types";
 import type { SubjectsRepository } from "@/domain/subjects/subjects.ports";
 import type {
   SubjectEntity,
@@ -254,18 +263,60 @@ function buildInitialQuestions(): QuestionEntity[] {
   return [...privateQuestions, ...publicQuestions];
 }
 
+function buildInitialQuizSessions(): QuizSessionEntity[] {
+  return [
+    {
+      id: "session-demo",
+      userId: MOCK_USER_PROFILE.id,
+      subjectId: "subj-anatomia",
+      subjectTitle: "Fisiología y Biofísica",
+      mode: "practice",
+      settingsJson: {
+        questionCount: 2,
+        seed: "seed-demo-session",
+        topicId: null,
+        questionIds: ["q-101", "q-102"],
+      },
+      status: "in_progress",
+      startedAt: "2026-11-10T11:30:00.000Z",
+      completedAt: null,
+      score: 10,
+      accuracy: 50,
+    },
+  ];
+}
+
+function buildInitialAttempts(): AttemptEntity[] {
+  return [
+    {
+      id: "att-demo-1",
+      sessionId: "session-demo",
+      userId: MOCK_USER_PROFILE.id,
+      questionId: "q-102",
+      responseJson: { selectedOptionIds: ["opt-tf-v"] },
+      isCorrect: false,
+      elapsedMs: 14200,
+      answeredAt: "2026-11-10T11:31:00.000Z",
+      questionVersion: 1,
+    },
+  ];
+}
+
 export class InMemoryStudyCatalogStore
   implements
     SubjectsRepository,
     TopicsRepository,
     DocumentsRepository,
     PrivateDocumentStoragePort,
-    QuestionsRepository
+    QuestionsRepository,
+    QuizzesRepository
 {
   private subjects: SubjectEntity[];
   private topics: TopicEntity[];
   private documents: DocumentEntity[];
   private questions: QuestionEntity[];
+  private quizSessions: QuizSessionEntity[];
+  private attempts: AttemptEntity[];
   private storedBlobs = new Set<string>();
   private seq = 100;
 
@@ -274,6 +325,8 @@ export class InMemoryStudyCatalogStore
     this.topics = seedWithDefaults ? buildInitialTopics() : [];
     this.documents = seedWithDefaults ? buildInitialDocuments() : [];
     this.questions = seedWithDefaults ? buildInitialQuestions() : [];
+    this.quizSessions = seedWithDefaults ? buildInitialQuizSessions() : [];
+    this.attempts = seedWithDefaults ? buildInitialAttempts() : [];
     for (const doc of this.documents) {
       if (doc.status === "available") {
         this.storedBlobs.add(doc.storagePath);
@@ -442,6 +495,9 @@ export class InMemoryStudyCatalogStore
     this.topics = this.topics.filter((t) => t.subjectId !== subjectId);
     this.documents = this.documents.filter((d) => d.subjectId !== subjectId);
     this.questions = this.questions.filter((q) => !topicIds.has(q.topicId));
+    this.quizSessions = this.quizSessions.filter(
+      (s) => s.subjectId !== subjectId
+    );
     return { ok: true, data: { deleted: true } };
   }
 
@@ -696,7 +752,6 @@ export class InMemoryStudyCatalogStore
 
     const target = this.documents[idx];
 
-    // Simular ON DELETE SET NULL en preguntas vinculadas preservando sourceDocumentName
     let affectedQuestions = 0;
     this.questions = this.questions.map((q) => {
       if (q.sourceDocumentId === documentId) {
@@ -981,6 +1036,185 @@ export class InMemoryStudyCatalogStore
 
     this.questions.splice(idx, 1);
     return { ok: true, data: { deleted: true } };
+  }
+
+  // --- QuizzesRepository ---
+
+  private enrichQuizSession(s: QuizSessionEntity): QuizSessionEntity {
+    const subject = this.subjects.find((sub) => sub.id === s.subjectId);
+    return {
+      ...s,
+      subjectTitle: subject?.title ?? s.subjectTitle ?? "Materia",
+    };
+  }
+
+  async createQuizSessionRecord(params: {
+    userId: string;
+    subjectId: string;
+    mode: QuizMode;
+    settingsJson: QuizSessionSettings;
+  }): Promise<QuizResult<QuizSessionEntity>> {
+    this.seq += 1;
+    const nowIso = new Date().toISOString();
+    const created: QuizSessionEntity = {
+      id: `session-${this.seq}`,
+      userId: params.userId,
+      subjectId: params.subjectId,
+      mode: params.mode,
+      settingsJson: params.settingsJson,
+      status: "in_progress",
+      startedAt: nowIso,
+      completedAt: null,
+      score: 0,
+      accuracy: 0,
+    };
+
+    this.quizSessions.unshift(created);
+    return { ok: true, data: this.enrichQuizSession(created) };
+  }
+
+  async findQuizSessionById(
+    sessionId: string
+  ): Promise<QuizResult<QuizSessionEntity | null>> {
+    const found = this.quizSessions.find((s) => s.id === sessionId) ?? null;
+    return {
+      ok: true,
+      data: found ? this.enrichQuizSession(found) : null,
+    };
+  }
+
+  async listQuizSessionsByUser(
+    userId: string
+  ): Promise<QuizResult<QuizSessionEntity[]>> {
+    return {
+      ok: true,
+      data: this.quizSessions
+        .filter((s) => s.userId === userId)
+        .map((s) => this.enrichQuizSession(s)),
+    };
+  }
+
+  async updateQuizSessionProgress(
+    sessionId: string,
+    params: {
+      status: QuizSessionStatus;
+      score: number;
+      accuracy: number;
+      completedAt: string | null;
+    }
+  ): Promise<QuizResult<QuizSessionEntity>> {
+    const idx = this.quizSessions.findIndex((s) => s.id === sessionId);
+    if (idx === -1) {
+      return {
+        ok: false,
+        error: {
+          code: "SESSION_NOT_FOUND",
+          message: "Sesión no encontrada.",
+        },
+      };
+    }
+
+    const updated: QuizSessionEntity = {
+      ...this.quizSessions[idx],
+      status: params.status,
+      score: params.score,
+      accuracy: params.accuracy,
+      completedAt: params.completedAt ?? this.quizSessions[idx].completedAt,
+    };
+
+    this.quizSessions[idx] = updated;
+    return { ok: true, data: this.enrichQuizSession(updated) };
+  }
+
+  async recordAttemptIdempotent(params: {
+    sessionId: string;
+    userId: string;
+    questionId: string;
+    selectedOptionIds: string[];
+    isCorrect: boolean;
+    elapsedMs: number;
+    questionVersion: number;
+  }): Promise<
+    QuizResult<{
+      attempt: AttemptEntity;
+      wasDuplicateRetry: boolean;
+    }>
+  > {
+    // Idempotencia por (sessionId, questionId)
+    const existing = this.attempts.find(
+      (a) =>
+        a.sessionId === params.sessionId && a.questionId === params.questionId
+    );
+
+    if (existing) {
+      return {
+        ok: true,
+        data: {
+          attempt: existing,
+          wasDuplicateRetry: true,
+        },
+      };
+    }
+
+    this.seq += 1;
+    const created: AttemptEntity = {
+      id: `att-${this.seq}`,
+      sessionId: params.sessionId,
+      userId: params.userId,
+      questionId: params.questionId,
+      responseJson: { selectedOptionIds: [...params.selectedOptionIds] },
+      isCorrect: params.isCorrect,
+      elapsedMs: params.elapsedMs,
+      answeredAt: new Date().toISOString(),
+      questionVersion: params.questionVersion,
+    };
+
+    this.attempts.push(created);
+    return {
+      ok: true,
+      data: {
+        attempt: created,
+        wasDuplicateRetry: false,
+      },
+    };
+  }
+
+  async listAttemptsBySession(
+    sessionId: string
+  ): Promise<QuizResult<AttemptEntity[]>> {
+    return {
+      ok: true,
+      data: this.attempts.filter((a) => a.sessionId === sessionId),
+    };
+  }
+
+  async listAttemptsByUser(
+    userId: string,
+    subjectId?: string
+  ): Promise<QuizResult<AttemptEntity[]>> {
+    let list = this.attempts.filter((a) => a.userId === userId);
+    if (subjectId) {
+      const subjectSessionIds = new Set(
+        this.quizSessions
+          .filter((s) => s.subjectId === subjectId && s.userId === userId)
+          .map((s) => s.id)
+      );
+      const subjectTopicIds = new Set(
+        this.topics.filter((t) => t.subjectId === subjectId).map((t) => t.id)
+      );
+      const subjectQuestionIds = new Set(
+        this.questions
+          .filter((q) => subjectTopicIds.has(q.topicId))
+          .map((q) => q.id)
+      );
+
+      list = list.filter(
+        (a) =>
+          subjectSessionIds.has(a.sessionId) ||
+          subjectQuestionIds.has(a.questionId)
+      );
+    }
+    return { ok: true, data: list };
   }
 }
 
